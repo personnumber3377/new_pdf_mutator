@@ -18,7 +18,6 @@ Environment:
  - MUTATOR_PKL_PATH : path to pickle DB (default ./resources.pkl)
 """
 
-import copy
 import os
 import io
 import sys
@@ -314,21 +313,19 @@ def extract_resource_samples_from_pdf(pdf_path: Path) -> List[Dict[str, Any]]:
     try:
         with pikepdf.open(pdf_path) as pdf:
             # always try page resources first (still useful)
-            '''
             for p in pdf.pages:
                 try:
                     r = p.get("/Resources")
                     if r:
-                        samples.append(copy.deepcopy(pike_to_py(r)))
+                        samples.append(pike_to_py(r))
                 except Exception:
                     pass
-            '''
-            dlog("Iterating over objects...")
+
             # now grab arbitrary objects
             for obj in pdf.objects:
                 try:
                     if isinstance(obj, (pikepdf.Dictionary, pikepdf.Array, pikepdf.Stream)):
-                        the_thing = copy.deepcopy(pike_to_py(obj))
+                        the_thing = pike_to_py(obj)
                         # Check if the thing is an empty result, if yes, then do not add it...
                         if the_thing["__type__"] == "stream": # Check stream
                             # dprint("the thing: "+str(the_thing))
@@ -338,7 +335,6 @@ def extract_resource_samples_from_pdf(pdf_path: Path) -> List[Dict[str, Any]]:
                         samples.append(the_thing)
                 except Exception:
                     continue
-            dlog("After...")
     except Exception as e:
         print(f"Warning: failed to open {pdf_path}: {e}", file=sys.stderr)
     return samples
@@ -387,8 +383,7 @@ def build_resources_db_from_dir(pdf_dir: Path, pkl_path: Path) -> List[Dict[str,
         if not p.is_file() or p.suffix.lower() != ".pdf":
             continue
         try:
-            # print(p.name)
-            dlog("filename: "+str(p.name))
+            print(p.name)
             samples = extract_resource_samples_from_pdf(p)
             if samples:
                 db.extend(samples)
@@ -396,7 +391,7 @@ def build_resources_db_from_dir(pdf_dir: Path, pkl_path: Path) -> List[Dict[str,
                 break
         except Exception:
             pass
-    dlog("Saving resources...")
+
     try:
         with open(pkl_path, "wb") as fh:
             pickle.dump(db[:MAX_DB_SIZE], fh)
@@ -407,8 +402,6 @@ def build_resources_db_from_dir(pdf_dir: Path, pkl_path: Path) -> List[Dict[str,
 
 def load_resources_db(pdf_dir: Path, pkl_path: Path) -> List[Dict[str, Any]]:
     # prefer pickle if present and up-to-date relative to pdf_dir
-    # Debugging stuff...
-    return [1]
     if pkl_path.exists():
         try:
             pkl_mtime = pkl_path.stat().st_mtime
@@ -1015,11 +1008,6 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
     except Exception as e:
         raise RuntimeError("pikepdf failed to open input: %s" % e)
 
-    dlog("Iterating over objects...")
-    for o in pdf.objects:
-        dlog("obj!!!")
-    dlog("After...")
-
     if not _resources_db:
         raise RuntimeError("empty resources DB")
 
@@ -1228,8 +1216,6 @@ def fuzz(buf: bytearray, add_buf, max_size: int) -> bytearray:
 
         if len(buf) <= HEADER_SIZE:
             raise ValueError("buf too small (<= HEADER_SIZE)")
-
-        dlog("Buffer: "+str(buf))
 
         header = bytes(buf[:HEADER_SIZE])
         core = bytes(buf[HEADER_SIZE:])
