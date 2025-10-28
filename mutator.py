@@ -1027,6 +1027,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
         else:
             raise RuntimeError("unsupported target for inplace mutation")
     # Structural / page operations
+    '''
     else:
         # shuffle pages occasionally
         pages = list(pdf.pages)
@@ -1054,7 +1055,8 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                         break
                 except Exception:
                     pass
-
+    '''
+    
     # Save mutated PDF to bytes
     out_buf = io.BytesIO()
     try:
