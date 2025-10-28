@@ -30,6 +30,11 @@ import traceback
 
 sys.setrecursionlimit(20000)
 
+
+def dlog(string):
+    with open("custom_mutator.log", "a") as log:
+        log.write(f"custom_mutator exception: {string}\n")
+
 try:
     import pikepdf
     from pikepdf import Name, Dictionary, Array, Stream
@@ -53,7 +58,8 @@ def dprint(msg: str) -> None:
 # -----------------------------
 # Config / Globals
 # -----------------------------
-HEADER_SIZE = 4  # keep header bytes unchanged in mutated output
+# HEADER_SIZE = 4  # keep header bytes unchanged in mutated output
+HEADER_SIZE = 0 # Zero byte header...
 DEFAULT_MUTATION_COUNT = 100
 MAX_DB_SIZE = 30000
 MAX_CALL_COUNT = 200000
@@ -359,6 +365,7 @@ def is_critical_object(obj, pdf) -> bool:
     return False
 
 def build_resources_db_from_dir(pdf_dir: Path, pkl_path: Path) -> List[Dict[str, Any]]:
+    print(pdf_dir)
     db: List[Dict[str, Any]] = []
     if not pdf_dir.exists() or not pdf_dir.is_dir():
         print(f"PDF dir {pdf_dir} not found; returning empty DB", file=sys.stderr)
@@ -403,6 +410,7 @@ def load_resources_db(pdf_dir: Path, pkl_path: Path) -> List[Dict[str, Any]]:
                         return db
         except Exception:
             pass
+    dlog("PDF_DIR: "+str(pdf_dir))
     return build_resources_db_from_dir(pdf_dir, pkl_path)
 
 
@@ -990,7 +998,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
     action_roll = rng.randrange(100)
 
     # Replacement path
-    if action_roll < 50:
+    if action_roll < 5:
         target = choose_target_object(pdf, rng)
         if target is None:
             raise RuntimeError("no candidate objects found for replacement")
@@ -1112,9 +1120,16 @@ def init(seed: int):
 
     # Load resources DB from pickle or PDF dir
     try:
+        # while True:
+        #     dlog("Paskaaaaa!!!!!")
         _resources_db = load_resources_db(DEFAULT_PDF_DIR, DEFAULT_PKL_PATH)
+        if len(_resources_db) == 0:
+            dlog("Zero length resources db!!!")
+            exit(0)
     except Exception as e:
         print("Warning: load_resources_db failed: %s" % e, file=sys.stderr)
+        dlog("Warning: load_resources_db failed: %s" % e)
+        exit(0)
         _resources_db = []
 
     _initialized = True
@@ -1225,11 +1240,13 @@ def custom_mutator(buf: bytearray, add_buf, max_size: int, callback=None) -> byt
     """
 
     # Log every call for debugging
+    '''
     try:
         with open("custom_mutator.log", "a") as log:
             log.write("custom_mutator called\n")
     except Exception:
         pass  # don't fail due to logging issues
+    '''
 
     # Make sure the mutator is initialized
     if not _initialized:
@@ -1237,7 +1254,11 @@ def custom_mutator(buf: bytearray, add_buf, max_size: int, callback=None) -> byt
 
     # Just delegate to the main fuzz() implementation
     try:
-        return fuzz(buf, add_buf, max_size)
+        mutated = fuzz(buf, add_buf, max_size)
+        fh = open("mutated.pdf", "wb")
+        fh.write(mutated)
+        fh.close()
+        return mutated # fuzz(buf, add_buf, max_size)
     except Exception as e:
         # Log the error as well, so you know if something went wrong
         try:
