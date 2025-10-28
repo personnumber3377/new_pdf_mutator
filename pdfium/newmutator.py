@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import random
 import traceback
+import generic_mutator_bytes
 
 sys.setrecursionlimit(20000)
 
@@ -1191,9 +1192,10 @@ def fuzz(buf: bytearray, add_buf, max_size: int) -> bytearray:
             out = out[:max_size]
         return out
     except Exception as e:
-        print(e)
+        # print(e)
         # raise e
-        return buf
+        # return 
+        return generic_mutator_bytes.mutate_generic(bytes(buf))
 
 
 
