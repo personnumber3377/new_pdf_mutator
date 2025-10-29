@@ -35,12 +35,12 @@ def find_slot():
 
 def wait_for_change(path: Path, previous_hash: str):
     """Wait until file content changes."""
-    return
+    # return
     while True:
         if path.exists():
             data = path.read_bytes()
             h = hashlib.sha1(data).hexdigest()
-            if h != previous_hash:
+            if True: #h != previous_hash:
                 return data, h
         time.sleep(0.001)
 
