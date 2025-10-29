@@ -10,6 +10,12 @@ slot_input = None
 slot_output = None
 last_written_hash = None
 
+def debug_log(string):
+    fh = open(os.getenv("HOME")+"/mutator_log.log", w)
+    fh.write(string)
+    fh.write("\n")
+    fh.close()
+    return
 
 def reserve_slot():
     """Find the first unused mut_inputX/mut_outputX pair."""
@@ -48,6 +54,7 @@ def fuzz_count(_buf: bytearray) -> int:
 
 def wait_for_change(path: Path, previous_hash: str):
     """Busy-wait until file hash changes (not just timestamp)."""
+    debug_log("Opening this file here: "+str(path.name))
     while True:
         if path.exists():
             data = path.read_bytes()
