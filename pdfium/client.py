@@ -6,7 +6,7 @@ import mutator
 import random
 import copy
 
-BASE = Path("./mut_ipc")
+BASE = Path("~/mut_ipc")
 SLOT_PREFIX = "mut_input"
 
 
