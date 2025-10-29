@@ -3,7 +3,7 @@ import os, time, hashlib
 from pathlib import Path
 
 MUT_MAX_SLOTS = 256
-BASE = Path("~/mut_ipc")   # directory used for slot files
+BASE = Path(os.getenv("HOME")+str("/mut_ipc"))   # directory used for slot files
 BASE.mkdir(exist_ok=True)
 
 slot_input = None

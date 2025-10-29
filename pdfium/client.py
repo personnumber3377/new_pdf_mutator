@@ -5,8 +5,9 @@ from pathlib import Path
 import mutator
 import random
 import copy
+import os # For HOME
 
-BASE = Path("~/mut_ipc")
+BASE = Path(os.getenv("HOME")+"/mut_ipc")
 SLOT_PREFIX = "mut_input"
 
 
