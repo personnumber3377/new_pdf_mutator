@@ -24,7 +24,7 @@ def reserve_slot():
 
     # for i in range(1, MUT_MAX_SLOTS + 1):
 
-    i = random.randrange(1_000_000_000)
+    i = os.getenv("SLOT_INDEX") # random.randrange(1_000_000_000)
 
     si = BASE / f"mut_input{i}"
     so = BASE / f"mut_output{i}"
@@ -50,6 +50,7 @@ def reserve_slot():
 def init(seed: int):
     if slot_input is not None:
         return
+    debug_log("Paskaperseeeeeeeeeeeeeee")
     reserve_slot()
 
 

@@ -35,7 +35,7 @@ def find_slot():
     idx = int(sys.argv[1]) # Get the stuff...
 
     output_slot = BASE / f"mut_output{idx}"
-
+    input_slot = BASE / f"mut_input{idx}"
     print(f"[client] attached to slot #{idx}")
     print(f"[client] input  → {input_slot}")
     print(f"[client] output → {output_slot}")
