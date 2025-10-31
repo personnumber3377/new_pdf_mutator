@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os, time, hashlib
 from pathlib import Path
+import random
 
 MUT_MAX_SLOTS = 256
 BASE = Path(os.getenv("HOME")+str("/mut_ipc"))   # directory used for slot files
@@ -21,24 +22,29 @@ def reserve_slot():
     """Find the first unused mut_inputX/mut_outputX pair."""
     global slot_input, slot_output
 
-    for i in range(1, MUT_MAX_SLOTS + 1):
-        si = BASE / f"mut_input{i}"
-        so = BASE / f"mut_output{i}"
-        lock = BASE / f"mut_slot{i}.lock"
+    # for i in range(1, MUT_MAX_SLOTS + 1):
 
-        try:
-            # atomic slot acquisition
-            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
-        except FileExistsError:
-            continue  # used by another mutator
+    i = random.randrange(1_000_000_000)
 
-        slot_input = si
-        slot_output = so
-        print(f"[mutator] acquired slot #{i}")
-        return
+    si = BASE / f"mut_input{i}"
+    so = BASE / f"mut_output{i}"
+    lock = BASE / f"mut_slot{i}.lock"
 
-    raise RuntimeError("No free mut slot found (all taken)")
+    '''
+    try:
+        # atomic slot acquisition
+        fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+    except FileExistsError:
+        continue  # used by another mutator
+    '''
+
+    slot_input = si
+    slot_output = so
+    print(f"[mutator] acquired slot #{i}")
+    return
+
+    # raise RuntimeError("No free mut slot found (all taken)")
 
 
 def init(seed: int):

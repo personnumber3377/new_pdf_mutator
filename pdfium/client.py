@@ -6,12 +6,14 @@ import mutator
 import random
 import copy
 import os # For HOME
+import sys # For argv
 
 BASE = Path(os.getenv("HOME")+"/mut_ipc")
 SLOT_PREFIX = "mut_input"
 
 
 def find_slot():
+    '''
     """Find the slot this client should work on."""
     slots = sorted(BASE.glob(f"{SLOT_PREFIX}*"))
     if not slots:
@@ -24,6 +26,14 @@ def find_slot():
     slots.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     input_slot = slots[0]
     idx = input_slot.name.replace("mut_input", "")
+    '''
+
+    if len(sys.argv) != 2: # The stuff...
+        print("[client] Usage: python "+str(sys.argv[0])+" INDEX")
+        exit(1)
+
+    idx = int(sys.argv[1]) # Get the stuff...
+
     output_slot = BASE / f"mut_output{idx}"
 
     print(f"[client] attached to slot #{idx}")
