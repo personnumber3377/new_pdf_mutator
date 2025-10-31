@@ -40,7 +40,7 @@ def wait_for_change(path: Path, previous_hash: str):
         if path.exists():
             data = path.read_bytes()
             h = hashlib.sha1(data).hexdigest()
-            if True: #h != previous_hash:
+            if h != previous_hash:
                 return data, h
         time.sleep(0.001)
 

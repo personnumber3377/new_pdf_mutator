@@ -11,7 +11,7 @@ slot_output = None
 last_written_hash = None
 
 def debug_log(string):
-    fh = open(os.getenv("HOME")+"/mutator_log.log", w)
+    fh = open(os.getenv("HOME")+"/mutator_log.log", "a+")
     fh.write(string)
     fh.write("\n")
     fh.close()
@@ -59,8 +59,10 @@ def wait_for_change(path: Path, previous_hash: str):
         if path.exists():
             data = path.read_bytes()
             h = hashlib.sha1(data).hexdigest()
-            if h != previous_hash:
+            if True:
                 return data, h
+            # if h != previous_hash:
+            #     return data, h
         time.sleep(0.001)  # avoid burning CPU
 
 
