@@ -1,0 +1,444 @@
+diff --git a/fxjs/cjs_util.cpp b/fxjs/cjs_util.cpp
+index 81cf38379..983c5e4c8 100644
+--- a/fxjs/cjs_util.cpp
++++ b/fxjs/cjs_util.cpp
+@@ -498,3 +498,128 @@ CJS_Util::DataType CJS_Util::ParseDataType(WideString* sFormat) {
+ 
+   return result;
+ }
++
++// This is required for fuzzing...
++
++/*
++struct PrintdResult {
++    bool ok;
++    std::wstring value;
++    std::wstring error;
++};
++*/
++
++
++// This struct is equivalent to the JS conversion table in PDFium
++struct ConvertEntry {
++    const wchar_t* js;
++    const wchar_t* cpp;
++};
++
++/*
++static const ConvertEntry kTbConvertTable[] = {
++    {L"yyyy", L"%Y"},
++    {L"mm",   L"%m"},
++    {L"dd",   L"%d"},
++    {L"HH",   L"%H"},
++    {L"MM",   L"%M"},
++    {L"ss",   L"%S"},
++};
++*/
++
++struct ExtraEntry {
++    wchar_t js;
++    int value;
++};
++
++CJS_Util::PrintdResult printd_sans_js(int selector,
++                            const std::wstring& formatString,
++                            double dateMillis,
++                            bool pictureFlag = false)
++{
++    // Step 1 — Validate date
++    if (std::isnan(dateMillis)) {
++        return {false, L"", L"Invalid date"};
++    }
++
++    // Extract date/time fields
++    time_t t = (time_t)(dateMillis / 1000.0);
++    tm* lt = std::localtime(&t);
++    if (!lt)
++        return {false, L"", L"Invalid date"};
++
++    int year  = lt->tm_year + 1900;
++    int month = lt->tm_mon + 1;
++    int day   = lt->tm_mday;
++    int hour  = lt->tm_hour;
++    int min   = lt->tm_min;
++    int sec   = lt->tm_sec;
++
++    // Case 1 — number selector
++    if (selector != -1) {
++        WideString out;
++        switch (selector) {
++            case 0:
++              out = WideString::Format(L"D:%04d%02d%02d%02d%02d%02d", year,
++                                            month, day, hour, min, sec);
++              break;
++            case 1:
++              out = WideString::Format(L"%04d.%02d.%02d %02d:%02d:%02d", year,
++                                            month, day, hour, min, sec);
++              break;
++            case 2:
++              out = WideString::Format(L"%04d/%02d/%02d %02d:%02d:%02d", year,
++                                            month, day, hour, min, sec);
++              break;
++            default:
++                return {false, L"", L"Value error"};
++        }
++        (void)out;
++        return {true, L"", L""};
++    }
++
++    // Case 2 — string format
++    if (pictureFlag) {
++        // PDFium returns error if XFAPicture is true
++        return {false, L"", L"Not supported"};
++    }
++
++    // Remove existing % signs
++    std::wstring fmt = formatString;
++    fmt.erase(std::remove(fmt.begin(), fmt.end(), L'%'), fmt.end());
++
++    // Apply table replacements
++    for (const auto& conv : kTbConvertTable) {
++        size_t pos = 0;
++        while ((pos = fmt.find(conv.lpszJSMark, pos)) != std::wstring::npos) {
++            fmt.replace(pos, wcslen(conv.lpszJSMark), conv.lpszCppMark);
++            pos += wcslen(conv.lpszCppMark);
++        }
++    }
++
++    // Apply single-letter replacements
++    ExtraEntry extra[] = {
++        {L'm', month}, {L'd', day},
++        {L'H', hour},  {L'h', hour > 12 ? hour - 12 : hour},
++        {L'M', min},   {L's', sec}
++    };
++
++    for (auto& ex : extra) {
++        size_t pos = 0;
++        while ((pos = fmt.find(ex.js, pos)) != std::wstring::npos) {
++            if (pos > 0 && fmt[pos - 1] == L'%') {
++                pos++;
++                continue;
++            }
++            fmt.replace(pos, 1, std::to_wstring(ex.value));
++            pos++;
++        }
++    }
++
++    // Finally call wcsftime
++    wchar_t buf[128] = {};
++    wcsftime(buf, sizeof(buf)/sizeof(wchar_t), fmt.c_str(), lt);
++
++    return {true, buf, L""};
++}
++
+diff --git a/fxjs/cjs_util.h b/fxjs/cjs_util.h
+index 10e202ce2..2e42324c1 100644
+--- a/fxjs/cjs_util.h
++++ b/fxjs/cjs_util.h
+@@ -22,6 +22,13 @@ class CJS_Util final : public CJS_Object {
+     kString = 2,
+   };
+ 
++  struct PrintdResult {
++    bool ok;
++    std::wstring value;
++    std::wstring error;
++  };
++
++
+   static uint32_t GetObjDefnID();
+   static void DefineJSObjects(CFXJS_Engine* pEngine);
+ 
+@@ -41,6 +48,12 @@ class CJS_Util final : public CJS_Object {
+   static WideString StringPrintx(const WideString& cFormat,
+                                  const WideString& cSource);
+ 
++  // Required for fuzzing...
++  static CJS_Util::PrintdResult printd_sans_js(int selector,
++                            const std::wstring& formatString,
++                            double dateMillis,
++                            bool pictureFlag = false);
++
+   JS_STATIC_METHOD(printd, CJS_Util)
+   JS_STATIC_METHOD(printf, CJS_Util)
+   JS_STATIC_METHOD(printx, CJS_Util)
+@@ -62,6 +75,8 @@ class CJS_Util final : public CJS_Object {
+                    pdfium::span<v8::Local<v8::Value>> params);
+   CJS_Result byteToChar(CJS_Runtime* pRuntime,
+                         pdfium::span<v8::Local<v8::Value>> params);
++
++
+ };
+ 
+ #endif  // FXJS_CJS_UTIL_H_
+diff --git a/testing/fuzzers/BUILD.gn b/testing/fuzzers/BUILD.gn
+index 05c3c03ea..50b10dcfb 100644
+--- a/testing/fuzzers/BUILD.gn
++++ b/testing/fuzzers/BUILD.gn
+@@ -161,6 +161,26 @@ if (is_component_build) {
+   }
+ }
+ 
++source_set("mutator_helper") {
++  testonly = !is_component_build
++  sources = ["python_custom_mutator.cc"]
++  configs += [":fuzzer_config"]
++  deps = [
++    "../../:pdfium_public_headers",
++    "../../core/fxcrt",
++    "../../fpdfsdk",
++  ]
++  include_dirs = [
++    "/usr/include/python3.10",
++    "/usr/include/x86_64-linux-gnu/python3.10",
++    "//third_party/pdfium",
++    "../../"
++  ]
++  # Also add these too
++  ldflags = [ "-L/usr/lib/x86_64-linux-gnu" ]
++  libs = [ "python3.10", "pthread", "dl", "util", "m" ]
++}
++
+ source_set("fuzzer_helper") {
+   testonly = !is_component_build
+   sources = [
+@@ -595,7 +615,14 @@ pdfium_fuzzer("pdf_xml_fuzzer") {
+ }
+ 
+ pdfium_fuzzer("pdfium_fuzzer") {
+-  sources = [ "pdfium_fuzzer.cc" ]
+-  deps = [ ":fuzzer_helper" ]
++  sources = [
++    "pdfium_fuzzer.cc",
++#     "python_custom_mutator.cc"
++    ]
++  deps = [ ":fuzzer_helper", ":mutator_helper" ]
+   public_fuzzer = true
+ }
++
++
++
++
+diff --git a/testing/fuzzers/pdf_cfx_barcode_fuzzer.cc b/testing/fuzzers/pdf_cfx_barcode_fuzzer.cc
+index 97cbf7587..ad6e870dd 100644
+--- a/testing/fuzzers/pdf_cfx_barcode_fuzzer.cc
++++ b/testing/fuzzers/pdf_cfx_barcode_fuzzer.cc
+@@ -2,6 +2,8 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++/*
++
+ #include "core/fxcrt/compiler_specific.h"
+ #include "core/fxcrt/fx_string.h"
+ #include "core/fxcrt/span.h"
+@@ -37,3 +39,116 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+   // TODO(tsepez): Output to device.
+   return 0;
+ }
++
++*/
++
++
++
++#include "core/fxcrt/compiler_specific.h"
++#include "core/fxcrt/fx_string.h"
++#include "core/fxcrt/span.h"
++#include "core/fxcrt/widestring.h"
++#include "fxbarcode/cfx_barcode.h"
++#include "fxbarcode/BC_Library.h"
++
++#include "core/fxge/cfx_renderdevice.h"
++#include "core/fxge/dib/cfx_dibitmap.h"
++#include "core/fxge/cfx_defaultrenderdevice.h"
++#include <algorithm>
++#include <cstdint>
++
++extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
++  if (size < 8)
++    return 0;
++
++  // ---- LIB INIT ----
++  BC_Library_Init();
++
++  // --- Limited bitmap dimensions so fuzzing won't allocate gigabytes ---
++  int width  = std::max(32, static_cast<int>(data[0]) * 8);   // 0..2048
++  int height = std::max(32, static_cast<int>(data[1]) * 8);
++
++  // Create bitmap using PDFium's retain ptr helper
++  RetainPtr<CFX_DIBitmap> bitmap = pdfium::MakeRetain<CFX_DIBitmap>();
++  if (!bitmap->Create(width, height, FXDIB_Format::kBgrx)) {
++    BC_Library_Destroy();
++    return 0;
++  }
++
++  // ---- Setup render device ----
++  auto device = std::make_unique<CFX_DefaultRenderDevice>();
++  if (!device->Attach(bitmap)) {
++    BC_Library_Destroy();
++    return 0;
++  }
++
++  size_t offset = 2;
++
++  // ---- Pick barcode type ----
++  BC_TYPE type =
++      static_cast<BC_TYPE>(data[offset++] % (static_cast<int>(BC_TYPE::kLast) + 1));
++
++  std::unique_ptr<CFX_Barcode> barcode(CFX_Barcode::Create(type));
++
++  // ---- Use fuzz data to configure barcode parameters ----
++  auto read_clamped = [&](int low, int high) -> int {
++    if (offset >= size) return low;
++    return std::clamp(static_cast<int>(data[offset++]), low, high);
++  };
++
++  int moduleW = read_clamped(1, 32);
++  int moduleH = read_clamped(1, 32);
++  int imgW = std::min(width, read_clamped(32, width));
++  int imgH = std::min(height, read_clamped(32, height));
++  int errorCorr = read_clamped(0, 8); // depends on barcode type; safe anyway
++
++  barcode->SetModuleWidth(moduleW);
++  barcode->SetModuleHeight(moduleH);
++  barcode->SetWidth(imgW);
++  barcode->SetHeight(imgH);
++  barcode->SetErrorCorrectionLevel(errorCorr);
++
++  // Here we need to check before reading data[offset++]
++
++  if (offset + 1 >= size) {
++    BC_Library_Destroy();
++    return 0;
++  }
++
++  barcode->SetPrintChecksum((data[offset++] & 1) != 0);
++
++  // ---- Remaining bytes are content (UTF-16LE) ----
++  size_t remaining = size - offset;
++  if (remaining == 0) {
++    BC_Library_Destroy();
++    return 0;
++  }
++
++  size_t chars = remaining / 2;
++  if (chars > 4096) chars = 4096; // protect fuzz infra from huge strings
++  auto span = UNSAFE_BUFFERS(pdfium::span(&data[offset], size - offset)); // Make the span stuff..
++  // WideString content = WideString::FromUTF16LE(&data[offset], chars * 2);
++  WideString content = WideString::FromUTF16LE(span);
++  if (!barcode->Encode(content.AsStringView())) {
++    BC_Library_Destroy();
++    return 0;
++  }
++
++  // ---- Render to device via matrix ----
++  CFX_Matrix matrix;               // identity transform
++  barcode->RenderDevice(device.get(), matrix);
++
++  // Optional: touch a pixel so bitmap is "used"
++  /*
++
++  uint8_t* buf = bitmap->GetBuffer();
++  if (buf)
++    buf[0] ^= buf[bitmap->GetPitch() / 2]; // tiny side effect, avoids dead code elimination
++  */
++
++  bitmap->GetBuffer(); // Just call the buffer stuff...
++
++
++  BC_Library_Destroy();
++  return 0;
++}
+\ No newline at end of file
+diff --git a/testing/fuzzers/pdf_cjs_util_fuzzer.cc b/testing/fuzzers/pdf_cjs_util_fuzzer.cc
+index d530aa091..f5f97ec6d 100644
+--- a/testing/fuzzers/pdf_cjs_util_fuzzer.cc
++++ b/testing/fuzzers/pdf_cjs_util_fuzzer.cc
+@@ -20,5 +20,39 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+     WideString input2 = WideString::FromUTF16LE(span.subspan(len1));
+     CJS_Util::StringPrintx(input1, input2);
+   }
++  /*
++  printd_sans_js(int selector,
++                            const std::wstring& formatString,
++                            double dateMillis,
++                            bool pictureFlag = false)
++  */
++
++
++  /*
++  if (size > 5) {
++    // Do the stuff...
++    int selector = (int)(data[0] % 3);
++    double dateMillis = (double)(*(data+1));
++    const WideString formatString = WideString::FromUTF16LE(UNSAFE_BUFFERS(pdfium::span(data+5,size-5)).first(size-5)); // Get the first stuff out...
++    CJS_Util::printd_sans_js(selector, formatString, dateMillis); // Call the function...
++  }
++  */
++
++
++  if (size > 5) {
++    int selector = (int)(data[0] % 3);
++    double dateMillis = (double)(*(data+1));
++
++    WideString formatWS = WideString::FromUTF16LE(
++        UNSAFE_BUFFERS(pdfium::span(data+5, size-5))
++    );
++
++    // Convert WideString → std::wstring
++    std::wstring formatString(formatWS.c_str(), formatWS.GetLength());
++
++    // Call your standalone function
++    CJS_Util::printd_sans_js(selector, formatString, dateMillis);
++  }
++
+   return 0;
+ }
+diff --git a/testing/fuzzers/pdf_xfa_raw_fuzzer.cc b/testing/fuzzers/pdf_xfa_raw_fuzzer.cc
+index c9ae2ce5e..e43682c44 100644
+--- a/testing/fuzzers/pdf_xfa_raw_fuzzer.cc
++++ b/testing/fuzzers/pdf_xfa_raw_fuzzer.cc
+@@ -31,7 +31,7 @@ class PDFiumXFAFuzzer : public PDFiumFuzzerHelper {
+ };
+ 
+ bool IsValidForFuzzing(const uint8_t* data, size_t size) {
+-  if (size > 2048) {
++  if (size > 100000) { // 100k max
+     return false;
+   }
+ 
+diff --git a/testing/fuzzers/pdfium_fuzzer.cc b/testing/fuzzers/pdfium_fuzzer.cc
+index e70702a71..9fc9c24e9 100644
+--- a/testing/fuzzers/pdfium_fuzzer.cc
++++ b/testing/fuzzers/pdfium_fuzzer.cc
+@@ -2,9 +2,29 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
+ #include <stdint.h>
+ 
+-#include "testing/fuzzers/pdfium_fuzzer_helper.h"
++// #include "testing/fuzzers/pdfium_fuzzer_helper.h"
++
++#include "pdfium_fuzzer_helper.h"
+ 
+ class PDFiumFuzzer : public PDFiumFuzzerHelper {
+  public:
