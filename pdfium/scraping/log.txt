@@ -1,0 +1,19 @@
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/377528733/attachments/60600198?download=false', 'https://issues.chromium.org/action/issues/377528733/attachments/60600198?download=true', 'https://issues.chromium.org/action/issues/377528733/attachments/60600199?download=false', 'https://issues.chromium.org/action/issues/377528733/attachments/60600199?download=true', 'https://issues.chromium.org/action/issues/377528733/attachments/60653731?download=true', 'https://issues.chromium.org/action/issues/377528733/attachments/60653764?download=true']
+[+] Downloaded 60600198.pdf
+[+] Downloaded 60600198.pdf
+[+] Downloaded 60600199.pdf
+[+] Downloaded 60600199.pdf
+[+] Downloaded 60653731.pdf
+[+] Downloaded 60653764.pdf
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/343754409/attachments/69975064?download=false', 'https://issues.chromium.org/action/issues/343754409/attachments/69975064?download=true']
+[+] Downloaded 69975064.pdf
+[+] Downloaded 69975064.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/442128550/attachments/69752914?download=true']
+[+] Downloaded 69752914.pdf

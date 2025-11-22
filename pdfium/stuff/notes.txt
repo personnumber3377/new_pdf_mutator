@@ -1,0 +1,135 @@
+oof@oof-h8-1440eo:~/new_pdf_mutator/pdfium/scraping$ python3 new_scraper.py 
+Here are the attachments: ['https://issues.chromium.org/action/issues/457351018/attachments/70666372?download=true', 'https://issues.chromium.org/action/issues/457351018/attachments/70875735?download=true', 'https://issues.chromium.org/action/issues/457351018/attachments/70929560?download=true']
+[+] Downloaded 70666372.pdf
+[+] Downloaded 70875735.pdf
+[+] Downloaded 70929560.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/365399710/attachments/59249126?download=true', 'https://issues.chromium.org/action/issues/365399710/attachments/61691287?download=true']
+[+] Downloaded 59249126.pdf
+[+] Downloaded 61691287.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/341363977/attachments/56512770?download=true', 'https://issues.chromium.org/action/issues/341363977/attachments/56521957?download=true']
+[+] Downloaded 56512770.pdf
+[+] Downloaded 56521957.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/336965824/attachments/55820773?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55843137?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55843138?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55843139?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55843140?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55843141?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55859403?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55975135?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55976047?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55975136?download=true', 'https://issues.chromium.org/action/issues/336965824/attachments/55975137?download=true']
+[+] Downloaded 55820773.pdf
+[+] Downloaded 55843137.pdf
+[+] Downloaded 55843138.pdf
+[+] Downloaded 55843139.pdf
+[+] Downloaded 55843140.pdf
+[+] Downloaded 55843141.pdf
+[+] Downloaded 55859403.pdf
+[+] Downloaded 55975135.pdf
+[+] Downloaded 55976047.pdf
+[+] Downloaded 55975136.pdf
+[+] Downloaded 55975137.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/402562388/attachments/63699047?download=true']
+[+] Downloaded 63699047.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/41493341/attachments/53023903?download=true', 'https://issues.chromium.org/action/issues/41493341/attachments/53251820?download=true']
+[+] Downloaded 53023903.pdf
+[+] Downloaded 53251820.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/402340844/attachments/63646702?download=true', 'https://issues.chromium.org/action/issues/402340844/attachments/63803101?download=true']
+[+] Downloaded 63646702.pdf
+[+] Downloaded 63803101.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/342446002/attachments/56634071?download=true', 'https://issues.chromium.org/action/issues/342446002/attachments/56688953?download=true', 'https://issues.chromium.org/action/issues/342446002/attachments/56688916?download=true', 'https://issues.chromium.org/action/issues/342446002/attachments/60814718?download=true']
+[+] Downloaded 56634071.pdf
+[+] Downloaded 56688953.pdf
+[+] Downloaded 56688916.pdf
+[+] Downloaded 60814718.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/356806650/attachments/58396901?download=true', 'https://issues.chromium.org/action/issues/356806650/attachments/58423583?download=true', 'https://issues.chromium.org/action/issues/356806650/attachments/58423584?download=true']
+[+] Downloaded 58396901.pdf
+[+] Downloaded 58423583.pdf
+[+] Downloaded 58423584.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/442128550/attachments/69752914?download=true']
+[+] Downloaded 69752914.pdf
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/343754409/attachments/69975064?download=true']
+[+] Downloaded 69975064.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/366060346/attachments/59380996?download=true']
+[+] Downloaded 59380996.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/354829268/attachments/61703025?download=true']
+[+] Downloaded 61703025.pdf
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/332746915/attachments/55224117?download=true']
+[+] Downloaded 55224117.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/352093465/attachments/57829639?download=true', 'https://issues.chromium.org/action/issues/352093465/attachments/57822579?download=true', 'https://issues.chromium.org/action/issues/352093465/attachments/57829663?download=true', 'https://issues.chromium.org/action/issues/352093465/attachments/57847088?download=true']
+[+] Downloaded 57829639.pdf
+[+] Downloaded 57822579.pdf
+[+] Downloaded 57829663.pdf
+[+] Downloaded 57847088.pdf
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/440395636/attachments/68706562?download=true', 'https://issues.chromium.org/action/issues/440395636/attachments/68761752?download=true', 'https://issues.chromium.org/action/issues/440395636/attachments/68762123?download=true']
+[+] Downloaded 68706562.pdf
+[+] Downloaded 68761752.pdf
+[+] Downloaded 68762123.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/379510441/attachments/60878912?download=true']
+[+] Downloaded 60878912.pdf
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/353565757/attachments/57985834?download=true', 'https://issues.chromium.org/action/issues/353565757/attachments/57985835?download=true', 'https://issues.chromium.org/action/issues/353565757/attachments/57985836?download=true', 'https://issues.chromium.org/action/issues/353565757/attachments/58017669?download=true']
+[+] Downloaded 57985834.pdf
+[+] Downloaded 57985835.pdf
+[+] Downloaded 57985836.pdf
+[+] Downloaded 58017669.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/456430649/attachments/70546675?download=true', 'https://issues.chromium.org/action/issues/456430649/attachments/70546676?download=true', 'https://issues.chromium.org/action/issues/456430649/attachments/70584682?download=true']
+[+] Downloaded 70546675.pdf
+[+] Downloaded 70546676.pdf
+[+] Downloaded 70584682.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/408068737/attachments/64544038?download=true']
+[+] Downloaded 64544038.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/404286911/attachments/63922219?download=true']
+[+] Downloaded 63922219.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/377528733/attachments/60600198?download=true', 'https://issues.chromium.org/action/issues/377528733/attachments/60600199?download=true', 'https://issues.chromium.org/action/issues/377528733/attachments/60653731?download=true', 'https://issues.chromium.org/action/issues/377528733/attachments/60653764?download=true']
+[+] Downloaded 60600198.pdf
+[+] Downloaded 60600199.pdf
+[+] Downloaded 60653731.pdf
+[+] Downloaded 60653764.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/442618070/attachments/68966942?download=true']
+[+] Downloaded 68966942.pdf
+Here are the attachments: []
+Here are the attachments: ['https://issues.chromium.org/action/issues/450596049/attachments/70013136?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70013137?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70013138?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70013139?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70031249?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70031108?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70031495?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70124630?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70124840?download=true', 'https://issues.chromium.org/action/issues/450596049/attachments/70124634?download=true']
+[+] Downloaded 70013136.pdf
+[+] Downloaded 70013137.pdf
+[+] Downloaded 70013138.pdf
+[+] Downloaded 70013139.pdf
+[+] Downloaded 70031249.pdf
+[+] Downloaded 70031108.pdf
+[+] Downloaded 70031495.pdf
+[+] Downloaded 70124630.pdf
+[+] Downloaded 70124840.pdf
+[+] Downloaded 70124634.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/378406205/attachments/60716661?download=true', 'https://issues.chromium.org/action/issues/378406205/attachments/60811123?download=true']
+[+] Downloaded 60716661.pdf
+[+] Downloaded 60811123.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/353997482/attachments/58046586?download=true', 'https://issues.chromium.org/action/issues/353997482/attachments/58108369?download=true', 'https://issues.chromium.org/action/issues/353997482/attachments/58193887?download=true']
+[+] Downloaded 58046586.pdf
+[+] Downloaded 58108369.pdf
+[+] Downloaded 58193887.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/350861431/attachments/57677268?download=true', 'https://issues.chromium.org/action/issues/350861431/attachments/57676548?download=true']
+[+] Downloaded 57677268.pdf
+[+] Downloaded 57676548.pdf
+Here are the attachments: ['https://issues.chromium.org/action/issues/41490836/attachments/53363705?download=true', 'https://issues.chromium.org/action/issues/41490836/attachments/53363722?download=true', 'https://issues.chromium.org/action/issues/41490836/attachments/53363745?download=true', 'https://issues.chromium.org/action/issues/41490836/attachments/53363746?download=true', 'https://issues.chromium.org/action/issues/41490836/attachments/53363747?download=true', 'https://issues.chromium.org/action/issues/41490836/attachments/53363748?download=true']
+[+] Downloaded 53363705.pdf
+[+] Downloaded 53363722.pdf
+[+] Downloaded 53363745.pdf
+[+] Downloaded 53363746.pdf
+[+] Downloaded 53363747.pdf
+[+] Downloaded 53363748.pdf
+Here are the attachments: []
+
+
+
+
