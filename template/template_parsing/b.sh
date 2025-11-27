@@ -1,3 +1,3 @@
 #!/bin/sh
 
-g++ parser.cc -o test
+g++ parser.cc -DTEST=1 -o test

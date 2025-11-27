@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <iomanip>
 #include <cmath>
+#include <cstring>
+#include <iostream>
+#include <unistd.h>
 
 // -------- Helpers --------
 
@@ -250,12 +253,12 @@ endobj
   /BitsPerCoordinate 32
   /BitsPerComponent 8
   /BitsPerFlag 8
-  /Decode [ 0 1 0 1 {{BYTES:decode_floats:24}} ]
+  /Decode [ 0 1 0 1 {{FLOAT32BE:decode_floats}} {{FLOAT32BE:decode_floats}} ]
   /Function 6 0 R
   /Length {{LEN:mesh_stream}}
 >>
 stream
-{{BYTES:mesh_stream:REST}}
+{{BYTES:mesh_stream:10000}}
 endstream
 
 endobj
