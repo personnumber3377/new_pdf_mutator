@@ -6,137 +6,220 @@
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
-#include <iostream>
+#include <iomanip>
+#include <cmath>
 
-#include <unistd.h>
+// -------- Helpers --------
 
-struct SegmentInfo {
-  size_t offset;
-  size_t length;
-};
-
-// Trim helper
 static std::string Trim(const std::string& s) {
-  size_t start = 0;
-  while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
-    ++start;
-  size_t end = s.size();
-  while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])))
-    --end;
-  return s.substr(start, end - start);
+  size_t a = 0;
+  while (a < s.size() && std::isspace((unsigned char)s[a])) a++;
+  size_t b = s.size();
+  while (b > a && std::isspace((unsigned char)s[b-1])) b--;
+  return s.substr(a, b - a);
 }
 
-// Split on single char
 static std::vector<std::string> Split(const std::string& s, char delim) {
   std::vector<std::string> out;
   std::string cur;
   for (char c : s) {
-    if (c == delim) {
-      out.push_back(cur);
-      cur.clear();
-    } else {
-      cur.push_back(c);
-    }
+    if (c == delim) { out.push_back(cur); cur.clear(); }
+    else cur.push_back(c);
   }
   out.push_back(cur);
   return out;
 }
 
-// Main template application function.
+// Convert bytes to float32 (big endian)
+static float ReadBEFloat32(const uint8_t* p) {
+  uint32_t v = (uint32_t(p[0]) << 24) |
+               (uint32_t(p[1]) << 16) |
+               (uint32_t(p[2]) << 8 ) |
+               (uint32_t(p[3]));
+  float f;
+  memcpy(&f, &v, sizeof(float));
+  return f;
+}
+
+static uint32_t ReadBEU32(const uint8_t* p) {
+  return (uint32_t(p[0]) << 24) |
+         (uint32_t(p[1]) << 16) |
+         (uint32_t(p[2]) << 8 ) |
+         (uint32_t(p[3]));
+}
+
+static int32_t ReadBEI32(const uint8_t* p) {
+  return int32_t((uint32_t(p[0]) << 24) |
+                 (uint32_t(p[1]) << 16) |
+                 (uint32_t(p[2]) << 8 ) |
+                 (uint32_t(p[3])));
+}
+
+static std::string BytesToHex(const uint8_t* p, size_t n) {
+  std::ostringstream oss;
+  oss << "<";
+  for (size_t i = 0; i < n; i++)
+    oss << std::hex << std::setw(2) << std::setfill('0') << (unsigned)(p[i]);
+  oss << ">";
+  return oss.str();
+}
+
+// -------- Main structure --------
+
+struct SegmentInfo {
+  size_t offset = 0;
+  size_t length = 0;
+};
+
 std::string ApplyPdfTemplate(const std::string& tmpl,
                              const uint8_t* data,
-                             size_t data_size) {
+                             size_t data_size)
+{
   std::unordered_map<std::string, SegmentInfo> segments;
   size_t data_pos = 0;
+
   std::string out;
-  out.reserve(tmpl.size() + data_size);  // heuristic
+  out.reserve(tmpl.size() + 32);
 
   size_t i = 0;
   while (i < tmpl.size()) {
-    if (i + 1 < tmpl.size() && tmpl[i] == '{' && tmpl[i + 1] == '{') {
-      // Find closing "}}"
-      size_t end = tmpl.find("}}", i + 2);
-      if (end == std::string::npos) {
-        throw std::runtime_error("Unclosed {{ in template");
-      }
-      std::string inside = tmpl.substr(i + 2, end - (i + 2));
-      inside = Trim(inside);
 
-      // Advance past token
+    // Look for {{ ... }}
+    if (i+1 < tmpl.size() && tmpl[i] == '{' && tmpl[i+1] == '{') {
+      size_t end = tmpl.find("}}", i+2);
+      if (end == std::string::npos)
+        throw std::runtime_error("Unterminated {{ }} template");
+
+      std::string inside = Trim(tmpl.substr(i+2, end-(i+2)));
       i = end + 2;
 
-      if (inside.empty()) {
-        continue;
-      }
+      if (inside.empty()) continue;
 
-      // Parse token: OP:arg1:arg2...
-      std::vector<std::string> parts = Split(inside, ':');
+      // Parse OP:arg1:arg2
+      auto parts = Split(inside, ':');
       for (auto& p : parts) p = Trim(p);
-      if (parts.empty())
-        continue;
 
       const std::string& op = parts[0];
 
+      // ---------- BYTES ----------
       if (op == "BYTES") {
-        // {{BYTES:name:N}}
-        if (parts.size() != 3) {
-          throw std::runtime_error("BYTES expects 2 arguments: name and length");
-        }
-        const std::string& name = parts[1];
-        const std::string& len_str = parts[2];
+        if (parts.size() != 3)
+          throw std::runtime_error("BYTES:name:N expected");
 
-        size_t n = 0;
-        if (len_str == "REST") {
+        std::string name = parts[1];
+        size_t n = std::stoul(parts[2]);
+
+        if (data_pos + n > data_size)
           n = data_size - data_pos;
-        } else {
-          n = static_cast<size_t>(std::stoul(len_str));
-        }
 
-        if (data_pos + n > data_size) {
-          // Not enough data; truncate or just break.
-          n = data_size - data_pos;
-        }
+        segments[name] = {data_pos, n};
 
-        SegmentInfo seg;
-        seg.offset = data_pos;
-        seg.length = n;
-        segments[name] = seg;
-
-        // Insert raw bytes into output
-        for (size_t k = 0; k < n; ++k) {
-          out.push_back(static_cast<char>(data[data_pos + k]));
-        }
+        out.append((const char*)data + data_pos, n);
         data_pos += n;
-
-      } else if (op == "LEN") {
-        // {{LEN:name}}
-        if (parts.size() != 2) {
-          throw std::runtime_error("LEN expects 1 argument: name");
-        }
-        const std::string& name = parts[1];
-        auto it = segments.find(name);
-        if (it == segments.end()) {
-          // Unknown segment; treat length as 0 or error.
-          // Here we choose "0" to keep going.
-          out += "0";
-        } else {
-          out += std::to_string(it->second.length);
-        }
-
-      } else {
-        // Unknown op -> you can either error or just copy it literally.
-        // For now, just ignore the token.
-        // Alternatively: out += "{{" + inside + "}}";
       }
-    } else {
-      out.push_back(tmpl[i]);
-      ++i;
+
+      // ---------- HEX ----------
+      else if (op == "HEX") {
+        if (parts.size() != 3)
+          throw std::runtime_error("HEX:name:N expected");
+
+        std::string name = parts[1];
+        size_t n = std::stoul(parts[2]);
+
+        if (data_pos + n > data_size)
+          n = data_size - data_pos;
+
+        segments[name] = {data_pos, n};
+
+        out += BytesToHex(data + data_pos, n);
+        data_pos += n;
+      }
+
+      // ---------- INT32BE ----------
+      else if (op == "INT32BE") {
+        if (parts.size() != 2)
+          throw std::runtime_error("INT32BE:name expected");
+
+        std::string name = parts[1];
+
+        if (data_pos + 4 > data_size)
+          break;
+
+        int32_t v = ReadBEI32(data + data_pos);
+
+        segments[name] = {data_pos, 4};
+        data_pos += 4;
+
+        out += std::to_string(v);
+      }
+
+      // ---------- UINT32BE ----------
+      else if (op == "UINT32BE") {
+        if (parts.size() != 2)
+          throw std::runtime_error("UINT32BE:name expected");
+
+        std::string name = parts[1];
+
+        if (data_pos + 4 > data_size)
+          break;
+
+        uint32_t v = ReadBEU32(data + data_pos);
+
+        segments[name] = {data_pos, 4};
+        data_pos += 4;
+
+        out += std::to_string(v);
+      }
+
+      // ---------- FLOAT32BE ----------
+      else if (op == "FLOAT32BE") {
+        if (parts.size() != 2)
+          throw std::runtime_error("FLOAT32BE:name expected");
+
+        std::string name = parts[1];
+
+        if (data_pos + 4 > data_size)
+          break;
+
+        float f = ReadBEFloat32(data + data_pos);
+
+        segments[name] = {data_pos, 4};
+        data_pos += 4;
+
+        // Print clean decimal
+        std::ostringstream oss;
+        oss << std::scientific << std::setprecision(9) << f;
+        out += oss.str();
+      }
+
+      // ---------- LEN ----------
+      else if (op == "LEN") {
+        if (parts.size() != 2)
+          throw std::runtime_error("LEN:name expected");
+
+        std::string name = parts[1];
+        auto it = segments.find(name);
+        if (it == segments.end())
+          out += "0";
+        else
+          out += std::to_string(it->second.length);
+      }
+
+      // ---------- UNKNOWN ----------
+      else {
+        // You can error or ignore; here we ignore.
+      }
+
+      continue;
     }
+
+    // Regular character
+    out.push_back(tmpl[i]);
+    i++;
   }
 
   return out;
 }
-
 #ifdef TEST
 
 const char kShadingTemplate[] = R"(
