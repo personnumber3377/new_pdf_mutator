@@ -90,8 +90,10 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
     // Look for {{ ... }}
     if (i+1 < tmpl.size() && tmpl[i] == '{' && tmpl[i+1] == '{') {
       size_t end = tmpl.find("}}", i+2);
-      if (end == std::string::npos)
-        throw std::runtime_error("Unterminated {{ }} template");
+      if (end == std::string::npos) {
+        abort(); // Do the stuff...
+        // throw std::runtime_error("Unterminated {{ }} template");
+      }
 
       std::string inside = Trim(tmpl.substr(i+2, end-(i+2)));
       i = end + 2;
@@ -106,8 +108,10 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- BYTES ----------
       if (op == "BYTES") {
-        if (parts.size() != 3)
-          throw std::runtime_error("BYTES:name:N expected");
+        if (parts.size() != 3) {
+          return "";
+          // throw std::runtime_error("BYTES:name:N expected");
+        }
 
         std::string name = parts[1];
         size_t n = std::stoul(parts[2]);
@@ -123,8 +127,10 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- HEX ----------
       else if (op == "HEX") {
-        if (parts.size() != 3)
-          throw std::runtime_error("HEX:name:N expected");
+        if (parts.size() != 3) {
+          return "";
+          // throw std::runtime_error("HEX:name:N expected");
+        }
 
         std::string name = parts[1];
         size_t n = std::stoul(parts[2]);
@@ -140,13 +146,16 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- INT32BE ----------
       else if (op == "INT32BE") {
-        if (parts.size() != 2)
-          throw std::runtime_error("INT32BE:name expected");
+        if (parts.size() != 2) {
+          return "";
+          // throw std::runtime_error("INT32BE:name expected");
+        }
 
         std::string name = parts[1];
 
-        if (data_pos + 4 > data_size)
-          break;
+        if (data_pos + 4 > data_size) {
+          return "";
+        }
 
         int32_t v = ReadBEI32(data + data_pos);
 
@@ -158,13 +167,16 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- UINT32BE ----------
       else if (op == "UINT32BE") {
-        if (parts.size() != 2)
-          throw std::runtime_error("UINT32BE:name expected");
+        if (parts.size() != 2) {
+          return "";
+          // throw std::runtime_error("UINT32BE:name expected");
+        }
 
         std::string name = parts[1];
 
-        if (data_pos + 4 > data_size)
-          break;
+        if (data_pos + 4 > data_size) {
+          return "";
+        }
 
         uint32_t v = ReadBEU32(data + data_pos);
 
@@ -176,13 +188,16 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- FLOAT32BE ----------
       else if (op == "FLOAT32BE") {
-        if (parts.size() != 2)
-          throw std::runtime_error("FLOAT32BE:name expected");
+        if (parts.size() != 2) {
+          return "";
+          // throw std::runtime_error("FLOAT32BE:name expected");
+        }
 
         std::string name = parts[1];
 
-        if (data_pos + 4 > data_size)
-          break;
+        if (data_pos + 4 > data_size) {
+          return "";
+        }
 
         float f = ReadBEFloat32(data + data_pos);
 
@@ -197,8 +212,10 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- LEN ----------
       else if (op == "LEN") {
-        if (parts.size() != 2)
-          throw std::runtime_error("LEN:name expected");
+        if (parts.size() != 2) {
+          return "";
+          // throw std::runtime_error("LEN:name expected");
+        }
 
         std::string name = parts[1];
         auto it = segments.find(name);
@@ -223,6 +240,9 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
   return out;
 }
+
+
+
 #ifdef TEST
 
 const char kShadingTemplate[] = R"(
@@ -306,7 +326,11 @@ unsigned char buf[100000]; // 100k input buffer
 
 int main(int argc, char** argv) {
   int len = read(0, buf, sizeof(buf)); // Read from stdin...
-  std::cout << ApplyPdfTemplate(kShadingTemplate, buf, len);
+  std::string res = ApplyPdfTemplate(kShadingTemplate, buf, len);
+  if (res == "") {
+    return 0;
+  }
+  std::cout << res;
   return 0;
 }
 
