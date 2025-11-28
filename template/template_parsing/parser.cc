@@ -90,32 +90,25 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
     // Look for {{ ... }}
     if (i+1 < tmpl.size() && tmpl[i] == '{' && tmpl[i+1] == '{') {
       size_t end = tmpl.find("}}", i+2);
-      if (end == std::string::npos) {
-        abort(); // Do the stuff...
-        // throw std::runtime_error("Unterminated {{ }} template");
-      }
+      if (end == std::string::npos)
+        return "";
 
       std::string inside = Trim(tmpl.substr(i+2, end-(i+2)));
       i = end + 2;
 
       if (inside.empty()) continue;
 
-      // Parse OP:arg1:arg2
+      // Parse OP:arg1:arg2...
       auto parts = Split(inside, ':');
       for (auto& p : parts) p = Trim(p);
-
       const std::string& op = parts[0];
 
       // ---------- BYTES ----------
       if (op == "BYTES") {
-        if (parts.size() != 3) {
-          return "";
-          // throw std::runtime_error("BYTES:name:N expected");
-        }
+        if (parts.size() != 3) return "";
 
         std::string name = parts[1];
         size_t n = std::stoul(parts[2]);
-
         if (data_pos + n > data_size)
           n = data_size - data_pos;
 
@@ -127,14 +120,10 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- HEX ----------
       else if (op == "HEX") {
-        if (parts.size() != 3) {
-          return "";
-          // throw std::runtime_error("HEX:name:N expected");
-        }
+        if (parts.size() != 3) return "";
 
         std::string name = parts[1];
         size_t n = std::stoul(parts[2]);
-
         if (data_pos + n > data_size)
           n = data_size - data_pos;
 
@@ -146,20 +135,11 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- INT32BE ----------
       else if (op == "INT32BE") {
-        if (parts.size() != 2) {
-          return "";
-          // throw std::runtime_error("INT32BE:name expected");
-        }
-
-        std::string name = parts[1];
-
-        if (data_pos + 4 > data_size) {
-          return "";
-        }
+        if (parts.size() != 2) return "";
+        if (data_pos + 4 > data_size) return "";
 
         int32_t v = ReadBEI32(data + data_pos);
-
-        segments[name] = {data_pos, 4};
+        segments[parts[1]] = {data_pos, 4};
         data_pos += 4;
 
         out += std::to_string(v);
@@ -167,20 +147,11 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- UINT32BE ----------
       else if (op == "UINT32BE") {
-        if (parts.size() != 2) {
-          return "";
-          // throw std::runtime_error("UINT32BE:name expected");
-        }
-
-        std::string name = parts[1];
-
-        if (data_pos + 4 > data_size) {
-          return "";
-        }
+        if (parts.size() != 2) return "";
+        if (data_pos + 4 > data_size) return "";
 
         uint32_t v = ReadBEU32(data + data_pos);
-
-        segments[name] = {data_pos, 4};
+        segments[parts[1]] = {data_pos, 4};
         data_pos += 4;
 
         out += std::to_string(v);
@@ -188,23 +159,13 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- FLOAT32BE ----------
       else if (op == "FLOAT32BE") {
-        if (parts.size() != 2) {
-          return "";
-          // throw std::runtime_error("FLOAT32BE:name expected");
-        }
-
-        std::string name = parts[1];
-
-        if (data_pos + 4 > data_size) {
-          return "";
-        }
+        if (parts.size() != 2) return "";
+        if (data_pos + 4 > data_size) return "";
 
         float f = ReadBEFloat32(data + data_pos);
-
-        segments[name] = {data_pos, 4};
+        segments[parts[1]] = {data_pos, 4};
         data_pos += 4;
 
-        // Print clean decimal
         std::ostringstream oss;
         oss << std::scientific << std::setprecision(9) << f;
         out += oss.str();
@@ -212,36 +173,46 @@ std::string ApplyPdfTemplate(const std::string& tmpl,
 
       // ---------- LEN ----------
       else if (op == "LEN") {
-        if (parts.size() != 2) {
-          return "";
-          // throw std::runtime_error("LEN:name expected");
-        }
-
+        if (parts.size() != 2) return "";
         std::string name = parts[1];
-        auto it = segments.find(name);
-        if (it == segments.end())
-          out += "0";
-        else
-          out += std::to_string(it->second.length);
-      }
 
-      // ---------- UNKNOWN ----------
-      else {
-        // You can error or ignore; here we ignore.
+        // Insert marker -- to be fixed in second pass
+        out += "@@LEN:" + name + "@@";
       }
 
       continue;
     }
 
-    // Regular character
+    // Normal character
     out.push_back(tmpl[i]);
     i++;
   }
 
+  // -------- SECOND PASS: replace all @@LEN:name@@ --------
+
+  for (const auto& kv : segments) {
+    const std::string marker = "@@LEN:" + kv.first + "@@";
+    const std::string length_str = std::to_string(kv.second.length);
+
+    size_t pos = 0;
+    while ((pos = out.find(marker, pos)) != std::string::npos) {
+      out.replace(pos, marker.size(), length_str);
+      pos += length_str.size();
+    }
+  }
+
+  // Unresolved LEN → replace with 0 (optional)
+  {
+    size_t pos = 0;
+    while ((pos = out.find("@@LEN:", pos)) != std::string::npos) {
+      size_t end = out.find("@@", pos+6);
+      if (end == std::string::npos) break;
+      out.replace(pos, end+2-pos, "0");
+    }
+  }
+
   return out;
 }
-
-
 
 #ifdef TEST
 
