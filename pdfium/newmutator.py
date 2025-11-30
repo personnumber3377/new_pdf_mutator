@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Tuple
 import random
 import traceback
 import generic_mutator_bytes
+import copy
 
 sys.setrecursionlimit(20000)
 
@@ -469,7 +470,7 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
 
     try:
         val = obj[key]
-
+        # print("We have this object here: "+str(val))
         # ---- numbers ----
         if expected == "int" and isinstance(val, int):
             obj[key] = val + rng.randint(-2000, 2000)
@@ -480,6 +481,9 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
 
         # ---- arrays ----
         elif expected == "array" and isinstance(val, Array):
+            # assert False # Do the stuff...
+            # exit(1)
+            # print("paskaperseeeee" * 1000)
             if len(val) == 0:
                 val.append(rng.randint(-100, 100))
             else:
@@ -489,7 +493,7 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                     elem = val[idx]
                     # Infer type and mutate
                     if isinstance(elem, int):
-                        val[idx] = elem * rng.randrange(-MAX_SCALE_FACTOR, MAX_SCALE_FACTOR) # elem + rng.randint(-100, 100)
+                        val[idx] = elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR)) # elem + rng.randint(-100, 100)
                     elif isinstance(elem, float):
                         val[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
                     elif isinstance(elem, str):
@@ -527,12 +531,14 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                     for _ in range(copies):
                         new_list.extend(val)
                     obj[key] = Array(new_list)
-
+                print("Doing the thing....")
                 # --- NEW: explode size ---
-                if rng.random() < 0.10:
+                if rng.random() < 1.0: #  < 0.10:
+                    print("paskaperseee!!!!!!"*10000)
                     grow = rng.randrange(200, 20000)
                     # Choose a random thing...
                     for _ in range(grow):
+                        # assert False # Just do the thing here...
                         val.append(copy.deepcopy(rng.choice(val)))
 
                 # --- NEW: shrink drastically ---
@@ -981,7 +987,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
         pdf.save(out_buf, linearize=False, compress_streams=False)
     except Exception as e:
         raise RuntimeError("pikepdf.save failed: %s" % e)
-    print("taddaaaaaaaa"*100) # Debug print...
+    # print("taddaaaaaaaa"*100) # Debug print...
     data = out_buf.getvalue()
     if len(data) > max_size:
         data = data[:max_size]
