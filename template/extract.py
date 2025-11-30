@@ -61,7 +61,7 @@ def extract_sampled_functions(pdf_path, out_prefix):
         # Save stream to a separate binary file
         bin_name = f"{out_prefix}_func{func_index}.bin"
         with open(bin_name, "wb") as fbin:
-            fbin.write(stream_bytes)
+            fbin.write(b"\x07"+stream_bytes)
 
         info = {
             "index": func_index,

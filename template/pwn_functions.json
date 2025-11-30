@@ -1,0 +1,20 @@
+[
+  {
+    "index": 0,
+    "BitsPerSample": 8,
+    "Size": [
+      5
+    ],
+    "Domain": [
+      0.0,
+      1.0
+    ],
+    "Range": [
+      0.0,
+      1.0
+    ],
+    "DeclaredLength": 5,
+    "ActualLength": 5,
+    "StreamFile": "pwn_func0.bin"
+  }
+]
