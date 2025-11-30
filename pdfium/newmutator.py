@@ -65,6 +65,7 @@ DEFAULT_MUTATION_COUNT = 100
 MAX_DB_SIZE = 30000
 MAX_CALL_COUNT = 200000
 MAX_STRING_SIZE = 10000
+MAX_MUTATIONS = 20
 
 MAX_CHAR_INSERT_COUNT = 10000 # Add some characters...
 MAX_STRING_MULT_COUNT = 100
@@ -74,7 +75,7 @@ MAX_INTEGER_RANGE = 2**32 - 1
 BANNED_KEYS = set(["/Length", "/Kids"])  # Do not modify these on stream dicts
 MAX_RECURSION = 8
 
-MAX_SCALE_FACTOR = 1000.0 # The max float scale factor
+MAX_SCALE_FACTOR = 10000000000.0 # The max float scale factor
 
 DEFAULT_PDF_DIR = Path(os.environ.get("MUTATOR_PDF_DIR", "./pdf_seed_corpus/"))
 DEFAULT_PKL_PATH = Path(os.environ.get("MUTATOR_PKL_PATH", "./resources.pkl"))
@@ -488,9 +489,9 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                     elem = val[idx]
                     # Infer type and mutate
                     if isinstance(elem, int):
-                        val[idx] = elem + rng.randint(-100, 100)
+                        val[idx] = elem * rng.randrange(-MAX_SCALE_FACTOR, MAX_SCALE_FACTOR) # elem + rng.randint(-100, 100)
                     elif isinstance(elem, float):
-                        val[idx] = elem * (1.0 + rng.random()) * MAX_SCALE_FACTOR
+                        val[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
                     elif isinstance(elem, str):
                         s = elem
                         if len(s) > 1:
@@ -500,12 +501,12 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                         else:
                             val[idx] = elem + "X"
                     elif isinstance(elem, Name):
-                        if pdf is not None and rng.random() < 0.25:
+                        if pdf is not None:
                             names = collect_named_objects(pdf)
                             if names:
                                 val[idx] = rng.choice(names)
-                        else:
-                            val[idx] = Name("/Alt" + str(rng.randint(0, 9999)))
+                        # else:
+                        #     val[idx] = Name("/Alt" + str(rng.randint(0, 9999)))
                 elif action == "duplicate":
                     idx = rng.randrange(len(val))
                     dprint("type of val is this: "+str(type(val)) + " and stuff: "+str(val.__dir__()))
@@ -514,7 +515,29 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                 elif action == "remove" and len(val) > 1:
                     del val[rng.randrange(len(val))]
                 elif action == "append":
-                    val.append(rng.randint(-1000, 1000))
+                    val.append(rng.choice(val))
+                    # val.append(rng.randint(-1000, 1000))
+
+
+                # --- NEW: Large-scale duplication ---
+                if rng.random() < 0.10 and len(val) > 0:
+                    # duplicate entire array N times
+                    copies = rng.randrange(2, 20)
+                    new_list = []
+                    for _ in range(copies):
+                        new_list.extend(val)
+                    obj[key] = Array(new_list)
+
+                # --- NEW: explode size ---
+                if rng.random() < 0.10:
+                    grow = rng.randrange(200, 20000)
+                    # Choose a random thing...
+                    for _ in range(grow):
+                        val.append(copy.deepcopy(rng.choice(val)))
+
+                # --- NEW: shrink drastically ---
+                if rng.random() < 0.10 and len(val) > 1:
+                    del val[0:len(val)//2]
 
         # ---- names ----
         elif expected == "name":
@@ -884,69 +907,73 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
     if not _resources_db:
         raise RuntimeError("empty resources DB")
 
-    # Decide action: weights
-    # 0-49 => replace object (50%)
-    # 50-79 => mutate object in-place (30%)
-    # 80-99 => shuffle/structural (20%)
-    action_roll = rng.randrange(100)
 
-    # Replacement path
-    if action_roll < 50:
-        target = choose_target_object(pdf, rng)
-        if target is None:
-            raise RuntimeError("no candidate objects found for replacement")
-        sample_py = rng.choice(_resources_db)
-        ok = replace_object_with_sample(pdf, target, sample_py, rng)
-        if not ok:
-            raise RuntimeError("replacement failed")
-    # In-place mutation path
-    elif action_roll < 100:
-        target = choose_target_object(pdf, rng)
-        if target is None:
-            raise RuntimeError("no candidate objects found for in-place mutation")
-        if isinstance(target, pikepdf.Stream):
-            ok = mutate_stream_inplace(target, rng)
+    for _ in range(rng.randrange(MAX_MUTATIONS)):
+
+
+        # Decide action: weights
+        # 0-49 => replace object (50%)
+        # 50-79 => mutate object in-place (30%)
+        # 80-99 => shuffle/structural (20%)
+        action_roll = rng.randrange(100)
+
+        # Replacement path
+        if action_roll < 50:
+            target = choose_target_object(pdf, rng)
+            if target is None:
+                raise RuntimeError("no candidate objects found for replacement")
+            sample_py = rng.choice(_resources_db)
+            ok = replace_object_with_sample(pdf, target, sample_py, rng)
             if not ok:
-                raise RuntimeError("stream mutate failed")
-        elif isinstance(target, pikepdf.Dictionary):
-            ok = False
-            count = 10
-            for i in range(count):
-                ok = mutate_dict_inplace(target, rng, pdf=pdf)
-                if ok:
-                    break
-            # if not ok:
-            #     raise RuntimeError("dict mutate failed")
-        else:
-            raise RuntimeError("unsupported target for inplace mutation")
-    # Structural / page operations
-    else:
-        # shuffle pages occasionally
-        pages = list(pdf.pages)
-        if len(pages) > 1:
-            # deterministic shuffle by rng
-            perm = list(range(len(pages)))
-            # perform a small number of swaps depending on rng
-            swap_count = 1 + (rng.randrange(min(5, len(pages))))
-            for _ in range(swap_count):
-                i = rng.randrange(len(pages))
-                j = rng.randrange(len(pages))
-                perm[i], perm[j] = perm[j], perm[i]
-            # apply permutation
-            new_pages = [pages[i] for i in perm]
-            # pdf.pages.clear()
-            for p in new_pages:
-                pdf.pages.append(p)
-        else:
-            # fallback structural edit: replace resources object if present
-            for obj in pdf.objects:
-                try:
-                    if isinstance(obj, pikepdf.Dictionary) and (set(k.strip("/") for k in obj.keys()) & {"Font", "XObject"}):
-                        sample_py = rng.choice(_resources_db)
-                        replace_object_with_sample(pdf, obj, sample_py, rng)
+                raise RuntimeError("replacement failed")
+        # In-place mutation path
+        elif action_roll < 100:
+            target = choose_target_object(pdf, rng)
+            if target is None:
+                raise RuntimeError("no candidate objects found for in-place mutation")
+            if isinstance(target, pikepdf.Stream):
+                ok = mutate_stream_inplace(target, rng)
+                if not ok:
+                    raise RuntimeError("stream mutate failed")
+            elif isinstance(target, pikepdf.Dictionary):
+                ok = False
+                count = 10
+                for i in range(count):
+                    ok = mutate_dict_inplace(target, rng, pdf=pdf)
+                    if ok:
                         break
-                except Exception:
-                    pass
+                # if not ok:
+                #     raise RuntimeError("dict mutate failed")
+            else:
+                raise RuntimeError("unsupported target for inplace mutation")
+        # Structural / page operations
+        else:
+            # shuffle pages occasionally
+            pages = list(pdf.pages)
+            if len(pages) > 1:
+                # deterministic shuffle by rng
+                perm = list(range(len(pages)))
+                # perform a small number of swaps depending on rng
+                swap_count = 1 + (rng.randrange(min(5, len(pages))))
+                for _ in range(swap_count):
+                    i = rng.randrange(len(pages))
+                    j = rng.randrange(len(pages))
+                    perm[i], perm[j] = perm[j], perm[i]
+                # apply permutation
+                new_pages = [pages[i] for i in perm]
+                # pdf.pages.clear()
+                for p in new_pages:
+                    pdf.pages.append(p)
+            else:
+                # fallback structural edit: replace resources object if present
+                for obj in pdf.objects:
+                    try:
+                        if isinstance(obj, pikepdf.Dictionary) and (set(k.strip("/") for k in obj.keys()) & {"Font", "XObject"}):
+                            sample_py = rng.choice(_resources_db)
+                            replace_object_with_sample(pdf, obj, sample_py, rng)
+                            break
+                    except Exception:
+                        pass
 
     # Save mutated PDF to bytes
     out_buf = io.BytesIO()
@@ -954,6 +981,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
         pdf.save(out_buf, linearize=False, compress_streams=False)
     except Exception as e:
         raise RuntimeError("pikepdf.save failed: %s" % e)
+    print("taddaaaaaaaa"*100) # Debug print...
     data = out_buf.getvalue()
     if len(data) > max_size:
         data = data[:max_size]
