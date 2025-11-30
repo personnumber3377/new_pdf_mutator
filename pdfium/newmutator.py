@@ -262,49 +262,6 @@ def py_to_pike(pyobj: Any, pdf: pikepdf.Pdf = None) -> Any:
 
     raise ValueError("Unsupported py -> pike type: " + t)
 
-
-# -----------------------------
-# Build / load resources DB
-# -----------------------------
-'''
-def extract_resource_samples_from_pdf(pdf_path: Path) -> List[Dict[str, Any]]:
-    """
-    Extract resource-like dictionaries from a single PDF file.
-    Returns list of Python-serializable samples.
-    """
-    samples = []
-    try:
-        with pikepdf.open(pdf_path) as pdf:
-            # pages' /Resources
-            for p in pdf.pages:
-                try:
-                    r = p.get("/Resources")
-                    if r:
-                        samples.append(pike_to_py(r))
-                except Exception:
-                    pass
-            # scan top-level objects for resource-like dicts
-            for obj in pdf.objects:
-                try:
-                    if isinstance(obj, pikepdf.Dictionary):
-                        keys = set(k.strip("/") for k in obj.keys())
-                        indicator = {"Font", "XObject", "ColorSpace", "ProcSet", "ExtGState"}
-                        if keys & indicator:
-                            samples.append(pike_to_py(obj))
-                    elif isinstance(obj, pikepdf.Stream):
-                        sd = obj.stream_dict if hasattr(obj, "stream_dict") else obj
-                        if sd is None:
-                            continue
-                        dkeys = set(k.strip("/") for k in sd.keys())
-                        if dkeys & {"Font", "XObject", "ColorSpace", "ProcSet", "ExtGState"}:
-                            samples.append(pike_to_py(sd))
-                except Exception:
-                    pass
-    except Exception as e:
-        print(f"Warning: failed to open {pdf_path}: {e}", file=sys.stderr)
-    return samples
-'''
-
 def extract_resource_samples_from_pdf(pdf_path: Path) -> List[Dict[str, Any]]:
     """
     Extract arbitrary objects from a PDF file.
@@ -800,6 +757,18 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random): # Here instead of
             slicev = data[start:end]
             where = rng.randrange(len(data))
             data = data[:where] + slicev + data[where:]
+    
+    if rng.random() < 0.05 and len(data) > 100:
+        start = rng.randrange(len(data)-50)
+
+        block = data[start: rng.randrange(start, len(data))] # Do the stuff here...
+
+        # data += block * rng.randrange(5, 40)
+
+        pos = rng.randrange(len(data))
+
+        data = data[:pos] + block * rng.randrange(5,100) + data[pos:] # Insert the thing...
+    
     try:
         if rng.randrange(10) == 9: # Check for the multiplication of the stream...
             dprint("Multiplying stream!!!")
@@ -1192,7 +1161,14 @@ def fuzz(buf: bytearray, add_buf, max_size: int) -> bytearray:
             out = out[:max_size]
         return out
     except Exception as e:
+
+        # print("Encountered this bullshit exception...")
         # print(e)
+        '''
+        if "unable to find" not in str(e) and "root" not in str(e):
+            print(str(e))
+            assert False
+        '''
         # raise e
         # return 
         return generic_mutator_bytes.mutate_generic(bytes(buf))
