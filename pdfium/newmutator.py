@@ -635,87 +635,10 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
             else:
                 # rare case: insert wrong type
                 obj[key] = rng.randint(-5000,5000)
-        # This here was the old code:
-
-        # ---- fallback: infer type from actual value ----
-        '''
-        else:
-            dprint("We went to the infer shit with this thing here: " + str(val) + " with type: "+str(type(val)))
-            if rng.random() < 0.95:  # mostly respect inferred type
-                if isinstance(val, int):
-                    obj[key] = val + rng.randint(-1000, 1000)
-                elif isinstance(val, float):
-                    obj[key] = val * (1.0 + rng.random())
-                elif isinstance(val, str):
-                    dprint("Doing the string stuff...")
-                    # treat same as string branch above
-                    if rng.random() < 0.7:
-                        if len(val) > 1:
-                            start = rng.randrange(len(val))
-                            end = rng.randrange(start, len(val))
-                            if rng.random() < 0.2:
-                                obj[key] = val[:start] + val[end:]
-                            else:
-                                dprint("Doing the string stuff...")
-                                obj[key] = val + val[start:end] * rng.randrange(MAX_STRING_MULT_COUNT) # The thing...
-                        else:
-                            obj[key] = val + "X"
-                    else:
-                        obj[key] = "".join(chr(32+rng.randrange(95)) for _ in range(rng.randint(1,MAX_STRING_SIZE)))
-                elif isinstance(val, Name):
-                    if pdf is not None and rng.random() < 0.9:
-                        names = collect_named_objects(pdf)
-                        if names:
-                            obj[key] = rng.choice(names)
-                    else:
-                        obj[key] = Name("/Alt" + str(rng.randint(0, 99999)))
-                elif isinstance(val, Array):
-                    # recurse into array
-                    if val:
-                        idx = rng.randrange(len(val))
-                        val[idx] = rng.choice(val)
-                    else:
-                        val.append(rng.randint(-100,100))
-                elif isinstance(val, Dictionary) and depth < MAX_RECURSION:
-                    mutate_dict_inplace(val, rng, depth+1, pdf=pdf)
-                elif isinstance(val, Stream):
-                    mutate_stream_inplace(val, rng)
-                else:
-                    dprint("FUCKFUCKFUCK")
-                    assert False
-                    obj[key] = Name("/Alt" + str(rng.randint(0,9999)))
-            else:
-                # rare case: insert wrong type
-                obj[key] = rng.randint(-5000,5000)
-        '''
-
-        # ---- fallback: infer type from actual value ----
 
     except Exception as e:
         raise e
         # return False
-
-    # return True
-
-    '''
-    # occasionally add/remove entries
-    if rng.random() < 0.12:
-        if pdf is not None:
-            # add a valid-looking key
-            new_key = rng.choice(collect_named_objects(pdf))
-            obj[new_key] = rng.randint(-10000, 10000)
-        else:
-            new_key = Name("/MutExtra" + str(rng.randint(0, 99999)))
-            obj[new_key] = rng.randint(-10000, 10000)
-
-    if rng.random() < 0.06 and obj.keys():
-        kdel = pick_choice(list(obj.keys()), rng)
-        try:
-            if kdel is not None:
-                del obj[kdel]
-        except Exception:
-            pass
-    '''
 
     return True
 
