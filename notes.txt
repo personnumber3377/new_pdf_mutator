@@ -1,0 +1,32 @@
+[client] wrote mutated output (1809 bytes)
+[client] wrote mutated output (10765 bytes)
+unsupported target for inplace mutation
+Traceback (most recent call last):
+  File "/home/oof/chromiumstuff/source/src/out/canvasfuzz/mutator.py", line 1187, in fuzz
+    mutated_core = mutate_pdf_structural(core, max_size - HEADER_SIZE, rng)
+  File "/home/oof/chromiumstuff/source/src/out/canvasfuzz/mutator.py", line 1029, in mutate_pdf_structural
+    raise RuntimeError("unsupported target for inplace mutation")
+RuntimeError: unsupported target for inplace mutation
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/oof/chromiumstuff/source/src/out/canvasfuzz/client.py", line 74, in <module>
+    main()
+  File "/home/oof/chromiumstuff/source/src/out/canvasfuzz/client.py", line 67, in main
+    mutated = mutator.fuzz(bytearray(data), None, 10_000_000)  # your real mutator logic
+  File "/home/oof/chromiumstuff/source/src/out/canvasfuzz/mutator.py", line 1200, in fuzz
+    assert False
+AssertionError
+
+
+
+
+
+
+
+ok, so I need to fix the crash above...
+
+
+https://chatgpt.com/c/692b5c46-7b38-832b-9397-5317943b3fe5
+
