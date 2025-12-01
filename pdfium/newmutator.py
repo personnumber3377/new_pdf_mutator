@@ -968,7 +968,8 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                 if ok:
                     break
         else:
-            print("paskaperseeeee"*1000)
+            dprint("FUCK!")
+            dprint("Invalid target for inplace mutation: "+str(target))
             exit(1)
             raise RuntimeError("unsupported target for inplace mutation")
     # Structural / page operations
