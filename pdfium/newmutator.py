@@ -948,9 +948,9 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                     ok = mutate_dict_inplace(target, rng, pdf=pdf)
                     if ok:
                         break
-                # if not ok:
-                #     raise RuntimeError("dict mutate failed")
             else:
+                print("paskaperseeeee"*1000)
+                exit(1)
                 raise RuntimeError("unsupported target for inplace mutation")
         # Structural / page operations
         else:
