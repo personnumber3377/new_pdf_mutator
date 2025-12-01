@@ -531,10 +531,10 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                     for _ in range(copies):
                         new_list.extend(val)
                     obj[key] = Array(new_list)
-                print("Doing the thing....")
+                # print("Doing the thing....")
                 # --- NEW: explode size ---
-                if rng.random() < 1.0: #  < 0.10:
-                    print("paskaperseee!!!!!!"*10000)
+                if rng.random() < 0.1: # 1.0: #  < 0.10:
+                    # print("paskaperseee!!!!!!"*10000)
                     grow = rng.randrange(200, 20000)
                     # Choose a random thing...
                     for _ in range(grow):
@@ -547,11 +547,11 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
 
         # ---- names ----
         elif expected == "name":
-            if pdf is not None and rng.random() < 0.75:
+            if pdf is not None:
                 valid_names = collect_named_objects(pdf)
                 obj[key] = rng.choice(valid_names)
-            else:
-                obj[key] = Name("/Alt" + str(rng.randint(0, 99999)))
+            # else:
+            #     obj[key] = Name("/Alt" + str(rng.randint(0, 99999)))
 
         # ---- bool ----
         elif expected == "bool":
