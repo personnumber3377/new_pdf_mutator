@@ -624,7 +624,7 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
                         obj[key] = "".join(chr(32+rng.randrange(95)) for _ in range(rng.randint(1,MAX_STRING_SIZE)))
 
                 elif isinstance(val, Name) or typecode == "name":
-                    if pdf is not None and rng.random() < 0.9:
+                    if pdf is not None:
                         names = collect_named_objects(pdf)
                         if names:
                             obj[key] = rng.choice(names)
