@@ -1,4 +1,9 @@
 #!/bin/sh
 
-python3 newmutator.py --mutate-iter issue17492.pdf output.pdf 1
+# python3 newmutator.py --mutate-iter issue17492.pdf output.pdf 1
+
+# bug1245391_reduced_minified.pdf
+
+
+python3 newmutator.py --mutate-iter bug1245391_reduced_minified.pdf output.pdf 1
 
