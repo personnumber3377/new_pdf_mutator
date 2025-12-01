@@ -712,9 +712,9 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
 def is_drawing_stream(stream: Stream) -> bool:
     try:
         # Page contents often lack obvious markers so use heuristics
-        parent = stream.get_parent()
-        if isinstance(parent, Dictionary) and parent.get("/Type") == "/Page":
-            return True
+        # parent = stream.get_parent()
+        # if isinstance(parent, Dictionary) and parent.get("/Type") == "/Page":
+        #     return True
 
         # streams with these keys are *not* content streams
         for bad in ("/Subtype", "/Width", "/Height", "/Filter"):
@@ -726,7 +726,9 @@ def is_drawing_stream(stream: Stream) -> bool:
         markers = [b"m", b"l", b"re", b"Tf", b"BT", b"ET", b"cm", b"Do", b"rg", b"RG"]
         return any(m in sample for m in markers)
 
-    except Exception:
+    except Exception as e:
+        dprint("Exception when checking if drawing stream: "+str(e))
+        exit(1)
         return False
 
 def tokenize_content_stream(data: bytes):
@@ -801,6 +803,8 @@ def mutate_operator_list(ops, rng):
 
     # 5. reorder operators
     if choice == 4:
+        global not_reached
+        not_reached = False
         rng.shuffle(ops)
         return ops
 
@@ -847,7 +851,7 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random):
                 return False
 
             global not_reached
-            not_reached = False # IS reached...
+            # not_reached = False # IS reached...
             dprint("Mutating drawing stream...")
             ops = mutate_operator_list(ops, rng)
             new_data = serialize_ops(ops)
