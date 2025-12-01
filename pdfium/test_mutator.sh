@@ -5,5 +5,5 @@
 # bug1245391_reduced_minified.pdf
 
 
-python3 newmutator.py --mutate-iter bug1245391_reduced_minified.pdf output.pdf 1
+python3 newmutator.py --mutate-iter issue3188.pdf output.pdf 1
 
