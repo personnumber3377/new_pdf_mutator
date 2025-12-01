@@ -75,6 +75,25 @@ not_reached = True # This is the thing
 
 MAX_CHAR_INSERT_COUNT = 10000 # Add some characters...
 
+PDF_DRAWING_OPS = [
+    # Path construction
+    "m", "l", "c", "v", "y", "h", "re",
+
+    # Painting
+    "S", "s", "f", "F", "f*", "B", "B*", "b", "b*", "n",
+
+    # Text
+    "BT", "ET", "Tf", "Td", "TD", "Tm", "Tj", "TJ", "'", '"',
+
+    # Graphics state
+    "q", "Q", "cm", "w", "J", "j", "M", "d", "ri",
+
+    # Color
+    "rg", "RG", "k", "K", "g", "G",
+
+    # XObject/image
+    "Do"
+]
 
 MAX_INTEGER_RANGE = 2**32 - 1
 
@@ -430,7 +449,7 @@ def collect_named_objects(pdf) -> List[Name]:
 
 def mut_string(string: str, rng: random.Random) -> str:
     global not_reached
-    not_reached = False
+    # not_reached = False
     dprint("Called mut_string with this string here: "+str(string))
     rand_mult = random.randrange(1, MAX_STRING_MULT_COUNT)
     dprint("rand_mult: "+str(rand_mult))
@@ -690,6 +709,110 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
 
     return True
 
+def is_drawing_stream(stream: Stream) -> bool:
+    try:
+        # Page contents often lack obvious markers so use heuristics
+        parent = stream.get_parent()
+        if isinstance(parent, Dictionary) and parent.get("/Type") == "/Page":
+            return True
+
+        # streams with these keys are *not* content streams
+        for bad in ("/Subtype", "/Width", "/Height", "/Filter"):
+            if bad in stream:
+                return False
+
+        # simple heuristic: content streams often contain operator keywords
+        sample = stream.read_bytes()[:2000]
+        markers = [b"m", b"l", b"re", b"Tf", b"BT", b"ET", b"cm", b"Do", b"rg", b"RG"]
+        return any(m in sample for m in markers)
+
+    except Exception:
+        return False
+
+def tokenize_content_stream(data: bytes):
+    """
+    Tokenize operands + operators from a content stream.
+    Returns a list of (operands, operator) entries.
+    Example:
+        b"10 20 m 30 40 l S" →
+        [
+            (["10", "20"], "m"),
+            (["30", "40"], "l"),
+            ([], "S")
+        ]
+    """
+    import re
+
+    toks = re.findall(rb"/?[A-Za-z0-9\.\-\+]+|\[|\]|<<|>>", data)
+    ops = []
+    operands = []
+
+    # PDF operators are alphabetic (e.g., m, l, re, Tf, BT, ET)
+    def is_operator(tok):
+        return tok.isalpha() or all(chr(c).isalpha() for c in tok)
+
+    for t in toks:
+        if is_operator(t):
+            ops.append((operands.copy(), t.decode("latin1")))
+            operands = []
+        else:
+            operands.append(t.decode("latin1"))
+
+    return ops
+
+def mutate_operator_list(ops, rng):
+    if not ops:
+        return ops
+
+    choice = rng.randrange(5)
+
+    # 1. mutate numeric operands
+    if choice == 0:
+        entry = rng.choice(ops)
+        operands, op = entry
+        for i, tok in enumerate(operands):
+            if tok.replace('.', '', 1).replace('-', '', 1).isdigit():
+                val = float(tok)
+                val *= (1.0 + (rng.random() - 0.5) * 5.0)
+                operands[i] = str(val)
+        return ops
+
+    # 2. mutate operator
+    if choice == 1:
+        entry = rng.choice(ops)
+        entry[1] = rng.choice(PDF_DRAWING_OPS)
+        return ops
+
+    # 3. insert a new random operator
+    if choice == 2:
+        idx = rng.randrange(len(ops))
+        new_op = rng.choice(PDF_DRAWING_OPS)
+        new_operands = []
+        # If operator takes numbers, generate some
+        if new_op in ("m", "l", "Td", "TD", "cm"):
+            new_operands = [str(rng.uniform(-500, 500)) for _ in range(2)]
+        ops.insert(idx, (new_operands, new_op))
+        return ops
+
+    # 4. delete an operator
+    if choice == 3 and len(ops) > 1:
+        del ops[rng.randrange(len(ops))]
+        return ops
+
+    # 5. reorder operators
+    if choice == 4:
+        rng.shuffle(ops)
+        return ops
+
+    return ops
+
+def serialize_ops(ops):
+    out = []
+    for operands, op in ops:
+        out.extend(operands)
+        out.append(op)
+    return (" ".join(out)).encode("latin1")
+
 def mutate_stream_inplace(stream: Stream, rng: random.Random):
     """
     Mutate stream bytes in-place (read-modify-write) using rng.
@@ -708,6 +831,35 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random):
     if not data:
         # insert small content
         data = bytearray(b'\x00')
+
+    '''
+    try:
+        data = stream.read_bytes() or b""
+    except Exception:
+        data = stream.read_raw_bytes() or b""
+    '''
+
+    # Detect & parse content stream
+    if is_drawing_stream(stream):
+        try:
+            ops = tokenize_content_stream(data)
+            if not ops:
+                return False
+
+            global not_reached
+            not_reached = False # IS reached...
+            dprint("Mutating drawing stream...")
+            ops = mutate_operator_list(ops, rng)
+            new_data = serialize_ops(ops)
+            dprint("New data: "+str(new_data))
+            stream.write(new_data)
+            return True
+
+        except Exception as e:
+            # fallback: raw mutation
+            pass
+
+
     choice = rng.randrange(4)
     if choice == 0:
         pos = rng.randrange(len(data))
