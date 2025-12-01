@@ -50,7 +50,7 @@ except Exception as e:
 
 # DEBUG = False
 
-DEBUG = False
+DEBUG = True
 
 def dprint(msg: str) -> None:
     if DEBUG:
@@ -68,8 +68,10 @@ MAX_CALL_COUNT = 200000
 MAX_STRING_SIZE = 10000
 MAX_MUTATIONS = 20
 
+not_reached = True # This is the thing
+
 MAX_CHAR_INSERT_COUNT = 10000 # Add some characters...
-MAX_STRING_MULT_COUNT = 100
+MAX_STRING_MULT_COUNT = 10000
 
 MAX_INTEGER_RANGE = 2**32 - 1
 
@@ -424,7 +426,11 @@ def collect_named_objects(pdf) -> List[Name]:
     return names
 
 def mut_string(string: str, rng: random.Random) -> str:
+    global not_reached
+    not_reached = True
+    dprint("Called mut_string with this string here: "+str(string))
     res = mutate_string_generic(string, rng) * random.randrange(1, MAX_STRING_MULT_COUNT)
+    dprint("result: "+str(res))
     return res
 
 def mutate_string_generic(string: str, rng: random.Random) -> str: # Generic string mutation function...
@@ -454,220 +460,220 @@ def mutate_string_generic(string: str, rng: random.Random) -> str: # Generic str
     assert False
     # return new_str
 
+# ————————————————————————————————
+# Helpers: specific mutations
+# ————————————————————————————————
+
+def mutate_int(val, rng):
+    return val + rng.randint(-2000, 2000)
+
+
+def mutate_number(val, rng):
+    factor = 1.0 + (rng.random() - 0.5) * MAX_SCALE_FACTOR
+    return float(val) * factor
+
+
+def mutate_string(val, rng):
+    return mut_string(str(val), rng)
+
+
+def mutate_name(val, rng, pdf):
+    if pdf:
+        names = collect_named_objects(pdf)
+        if names:
+            return rng.choice(names)
+    return Name("/Alt" + str(rng.randint(0, 99999)))
+
+
+def mutate_bool(val):
+    return not bool(val)
+
+
+def mutate_dict(val, rng, depth, pdf):
+    if depth < MAX_RECURSION:
+        mutate_dict_inplace(val, rng, depth + 1, pdf)
+    return val
+
+
+def mutate_stream(val, rng):
+    mutate_stream_inplace(val, rng)
+    return val
+
+
+# ————————————————————————————————
+# Arrays are complex — extract cleanly
+# ————————————————————————————————
+
+def mutate_array(arr: Array, rng, pdf):
+    # empty → append new int
+    if len(arr) == 0:
+        arr.append(rng.randint(-100, 100))
+        return arr
+
+    action = rng.choice(["mutate_elem", "duplicate", "remove", "append"])
+
+    if action == "mutate_elem":
+        idx = rng.randrange(len(arr))
+        elem = arr[idx]
+
+        if isinstance(elem, int):
+            arr[idx] = elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR))
+
+        elif isinstance(elem, float):
+            arr[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
+
+        elif isinstance(elem, str):
+            s = elem
+            if len(s) > 1:
+                start = rng.randrange(len(s))
+                end = rng.randrange(start, len(s))
+                arr[idx] = s[:start] + s[end:]
+            else:
+                arr[idx] = elem + "X"
+
+        elif isinstance(elem, Name):
+            if pdf:
+                names = collect_named_objects(pdf)
+                if names:
+                    arr[idx] = rng.choice(names)
+
+    elif action == "duplicate":
+        src = rng.randrange(len(arr))
+        tgt = rng.randrange(len(arr))
+        arr[tgt] = arr[src]
+
+    elif action == "remove" and len(arr) > 1:
+        del arr[rng.randrange(len(arr))]
+
+    elif action == "append":
+        arr.append(rng.choice(arr))
+
+    # Large-scale duplication
+    if rng.random() < 0.10 and arr:
+        copies = rng.randrange(2, 20)
+        new_list = []
+        for _ in range(copies):
+            new_list.extend(arr)
+        return Array(new_list)
+
+    # Explode size
+    if rng.random() < 0.10:
+        grow = rng.randrange(200, 20000)
+        for _ in range(grow):
+            arr.append(copy.deepcopy(rng.choice(arr)))
+
+    # Shrink
+    if rng.random() < 0.10 and len(arr) > 1:
+        del arr[0:len(arr)//2]
+
+    return arr
+
+
+# ————————————————————————————————
+# Generic inferred mutation path
+# Mirrors your explicit logic exactly
+# ————————————————————————————————
+
+def mutate_inferred(obj, key, val, rng, depth, pdf):
+    """Fallback path matching your original giant else-block semantics."""
+    dprint("Called mutate_inferred with obj == "+str(obj))
+    dprint("typecode: "+str(typecode))
+    # 95% chance: respect inferred type
+    if rng.random() < 0.95:
+        typecode = getattr(val, "typecode", None)
+
+        # int
+        if isinstance(val, int) or typecode == "int":
+            obj[key] = mutate_int(int(val), rng)
+            return
+
+        # float
+        if isinstance(val, float) or typecode == "real":
+            obj[key] = mutate_number(float(val), rng)
+            return
+
+        # string-like
+        if isinstance(val, str) or typecode in ("string", "name", "hexstring", "unicode"):
+            dprint("Called mutate_string with string == "+str(val))
+
+            obj[key] = mutate_string(str(val), rng)
+            dprint("New value is "+str(obj[key]))
+            return
+
+        # names
+        if isinstance(val, Name) or typecode == "name":
+            obj[key] = mutate_name(val, rng, pdf)
+            return
+
+        # arrays
+        if isinstance(val, Array) or typecode == "array":
+            obj[key] = mutate_array(val, rng, pdf)
+            return
+
+        # dicts
+        if isinstance(val, Dictionary) or typecode == "dict":
+            mutate_dict(val, rng, depth, pdf)
+            obj[key] = val
+            return
+
+        # streams
+        if isinstance(val, Stream) or typecode == "stream":
+            obj[key] = mutate_stream(val, rng)
+            return
+
+        dprint("Uknown type: "+str(obj))
+        exit(1)
+
+        # fallback: treat as string
+        obj[key] = mutate_string(str(val), rng)
+        return
+
+    # 5%: insert wrong-type garbage
+    obj[key] = rng.randint(-5000, 5000)
+
+
+# ————————————————————————————————
+# Dispatch table for expected types
+# ————————————————————————————————
+
+EXPECTED_TYPE_HANDLERS = {
+    "int":          lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_int(val, rng)),
+    "number":       lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_number(val, rng)),
+    "array":        lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_array(val, rng, pdf)),
+    "name":         lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_name(val, rng, pdf)),
+    "bool":         lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_bool(val)),
+    "string":       lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_string(val, rng)),
+    "dict":         lambda obj, key, val, rng, depth, pdf: mutate_dict(val, rng, depth, pdf),
+    "stream":       lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_stream(val, rng))
+}
+
+
+# ————————————————————————————————
+# MAIN MUTATOR
+# ————————————————————————————————
+
 def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf=None):
-    """
-    Mutate a pikepdf.Dictionary in-place using type-aware operations.
-    Uses `rng` for all randomness.
-    If pdf is passed, uses it to pick valid object/name references.
-    """
     if not isinstance(obj, Dictionary) or not obj.keys():
         return False
-    keys = list(obj.keys())
-    key = pick_choice(keys, rng)
+
+    key = pick_choice(list(obj.keys()), rng)
     if key is None:
         return False
-    expected = DICT_TYPE_MAP.get(str(key).lstrip("/"), "any")
+
+    expected_type = DICT_TYPE_MAP.get(str(key).lstrip("/"), "any")
+    val = obj[key]
 
     try:
-        val = obj[key]
-        # print("We have this object here: "+str(val))
-        # ---- numbers ----
-        if expected == "int" and isinstance(val, int):
-            obj[key] = val + rng.randint(-2000, 2000)
-
-        elif expected == "number" and isinstance(val, (int, float)):
-            factor = 1.0 + (rng.random() - 0.5) * MAX_SCALE_FACTOR
-            obj[key] = float(val) * factor
-
-        # ---- arrays ----
-        elif expected == "array" and isinstance(val, Array):
-            # assert False # Do the stuff...
-            # exit(1)
-            # print("paskaperseeeee" * 1000)
-            if len(val) == 0:
-                val.append(rng.randint(-100, 100))
-            else:
-                action = rng.choice(["mutate_elem", "duplicate", "remove", "append"])
-                if action == "mutate_elem":
-                    idx = rng.randrange(len(val))
-                    elem = val[idx]
-                    # Infer type and mutate
-                    if isinstance(elem, int):
-                        val[idx] = elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR)) # elem + rng.randint(-100, 100)
-                    elif isinstance(elem, float):
-                        val[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
-                    elif isinstance(elem, str):
-                        s = elem
-                        if len(s) > 1:
-                            start = rng.randrange(len(s))
-                            end = rng.randrange(start, len(s))
-                            val[idx] = s[:start] + s[end:]
-                        else:
-                            val[idx] = elem + "X"
-                    elif isinstance(elem, Name):
-                        if pdf is not None:
-                            names = collect_named_objects(pdf)
-                            if names:
-                                val[idx] = rng.choice(names)
-                        # else:
-                        #     val[idx] = Name("/Alt" + str(rng.randint(0, 9999)))
-                elif action == "duplicate":
-                    idx = rng.randrange(len(val))
-                    dprint("type of val is this: "+str(type(val)) + " and stuff: "+str(val.__dir__()))
-                    # val.insert(idx, val[idx])
-                    val[rng.randrange(len(val))] = val[idx]
-                elif action == "remove" and len(val) > 1:
-                    del val[rng.randrange(len(val))]
-                elif action == "append":
-                    val.append(rng.choice(val))
-                    # val.append(rng.randint(-1000, 1000))
-
-
-                # --- NEW: Large-scale duplication ---
-                if rng.random() < 0.10 and len(val) > 0:
-                    # duplicate entire array N times
-                    copies = rng.randrange(2, 20)
-                    new_list = []
-                    for _ in range(copies):
-                        new_list.extend(val)
-                    obj[key] = Array(new_list)
-                # print("Doing the thing....")
-                # --- NEW: explode size ---
-                if rng.random() < 0.1: # 1.0: #  < 0.10:
-                    # print("paskaperseee!!!!!!"*10000)
-                    grow = rng.randrange(200, 20000)
-                    # Choose a random thing...
-                    for _ in range(grow):
-                        # assert False # Just do the thing here...
-                        val.append(copy.deepcopy(rng.choice(val)))
-
-                # --- NEW: shrink drastically ---
-                if rng.random() < 0.10 and len(val) > 1:
-                    del val[0:len(val)//2]
-
-        # ---- names ----
-        elif expected == "name":
-            if pdf is not None:
-                valid_names = collect_named_objects(pdf)
-                obj[key] = rng.choice(valid_names)
-            # else:
-            #     obj[key] = Name("/Alt" + str(rng.randint(0, 99999)))
-
-        # ---- bool ----
-        elif expected == "bool":
-            obj[key] = not bool(val)
-
-        # ---- strings ----
-        elif expected == "string" and isinstance(val, str):
-            dprint("Doing the string stuff...")
-            if rng.random() < 0.8:  # mostly mutate existing string
-                if len(val) > 1:
-                    s = val
-                    action = rng.choice(["dup", "remove", "flip"])
-                    if action == "dup":
-                        start = rng.randrange(len(s))
-                        end = rng.randrange(start+1, len(s))
-                        piece = s[start:end]
-                        insert_at = rng.randrange(len(s))
-                        dprint("Doing the string stuff...")
-                        obj[key] = s[:insert_at] + piece * rng.randrange(MAX_STRING_MULT_COUNT) + s[insert_at:]
-                    elif action == "remove":
-                        start = rng.randrange(len(s))
-                        end = rng.randrange(start, len(s))
-                        obj[key] = s[:start] + s[end:]
-                    elif action == "flip":
-                        idx = rng.randrange(len(s))
-                        obj[key] = s[:idx] + chr(rng.randrange(32, 127)) + s[idx+1:]
-                else:
-                    obj[key] = val + "X"
-            else:  # generate new
-                s = "".join(chr(32 + rng.randrange(95)) for _ in range(rng.randint(1, MAX_STRING_SIZE)))
-                obj[key] = s
-
-        # ---- nested dict ----
-        elif expected == "dict" and isinstance(val, Dictionary) and depth < MAX_RECURSION:
-            mutate_dict_inplace(val, rng, depth + 1, pdf=pdf)
-
-        # ---- streams ----
-        elif expected == "stream" and isinstance(val, Stream):
-            mutate_stream_inplace(val, rng)
+        # If expected type is known & matches → use direct handler
+        if expected_type in EXPECTED_TYPE_HANDLERS:
+            EXPECTED_TYPE_HANDLERS[expected_type](obj, key, val, rng, depth, pdf)
         else:
-            dprint("We went to the infer shit with this thing here: " + str(val) + " with type: "+str(type(val)))
-            if rng.random() < 0.95:  # mostly respect inferred type
-                # unwrap pikepdf.Object by checking typecode
-                try:
-                    typecode = getattr(val, "typecode", None)
-                except Exception:
-                    typecode = None
-
-                if isinstance(val, int) or typecode == "int":
-                    obj[key] = int(val) + rng.randint(-1000, 1000)
-
-                elif isinstance(val, float) or typecode == "real":
-                    obj[key] = float(val) * (1.0 + rng.random())
-
-                elif isinstance(val, str) or typecode in ("string", "name", "hexstring", "unicode"):
-                    dprint("Doing the string stuff...")
-                    sval = str(val)
-                    if rng.random() < 0.7:
-                        if len(sval) > 1:
-                            start = rng.randrange(len(sval))
-                            end = rng.randrange(start, len(sval))
-                            if rng.random() < 0.2:
-                                obj[key] = sval[:start] + sval[end:]
-                            else:
-                                dprint("Doing the string stuff...")
-                                obj[key] = sval + sval[start:end] * rng.randrange(MAX_STRING_MULT_COUNT)
-                        else:
-                            obj[key] = sval + "X"
-                    else:
-                        obj[key] = "".join(chr(32+rng.randrange(95)) for _ in range(rng.randint(1,MAX_STRING_SIZE)))
-
-                elif isinstance(val, Name) or typecode == "name":
-                    if pdf is not None:
-                        names = collect_named_objects(pdf)
-                        if names:
-                            obj[key] = rng.choice(names)
-                    else:
-                        obj[key] = Name("/Alt" + str(rng.randint(0, 99999)))
-
-                elif isinstance(val, Array) or typecode == "array":
-                    if val:
-                        idx = rng.randrange(len(val))
-                        val[idx] = rng.choice(val)
-                    else:
-                        val.append(rng.randint(-100,100))
-
-                elif isinstance(val, Dictionary) or typecode == "dict":
-                    if depth < MAX_RECURSION:
-                        mutate_dict_inplace(val, rng, depth+1, pdf=pdf)
-
-                elif isinstance(val, Stream) or typecode == "stream":
-                    mutate_stream_inplace(val, rng)
-
-                else: # Ok, so we haven't found a good solution for this, here we just assume that the object is a string and be done with it that way...
-                    
-                    dprint("FUCKFUCKFUCK")
-                    # dprint("Here is the string thing: "+str(isinstance(obj, pikepdf.objects.String)))
-                    # dprint("String fuck: "+str(obj.__dir__()))
-                    # dprint("Here is the thing: "+str(typecode))
-
-                    # obj[]
-
-                    obj[key] = mut_string(str(val), rng) # Convert to string...
-
-                    # obj[key] = sval + "aaaaaa" # Just put a string into it for now...
-
-                    # assert False
-                    # obj[key] = Name("/Alt" + str(rng.randint(0,9999)))
-
-            else:
-                # rare case: insert wrong type
-                obj[key] = rng.randint(-5000,5000)
+            # Otherwise: use inferred type-based mutation
+            mutate_inferred(obj, key, val, rng, depth, pdf)
 
     except Exception as e:
+        # You can choose to swallow or rethrow
         raise e
-        # return False
 
     return True
 
@@ -914,72 +920,72 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
         raise RuntimeError("empty resources DB")
 
 
-    for _ in range(rng.randrange(MAX_MUTATIONS)):
+    # for _ in range(rng.randrange(MAX_MUTATIONS)):
 
 
-        # Decide action: weights
-        # 0-49 => replace object (50%)
-        # 50-79 => mutate object in-place (30%)
-        # 80-99 => shuffle/structural (20%)
-        action_roll = rng.randrange(100)
+    # Decide action: weights
+    # 0-49 => replace object (50%)
+    # 50-79 => mutate object in-place (30%)
+    # 80-99 => shuffle/structural (20%)
+    action_roll = rng.randrange(100)
 
-        # Replacement path
-        if action_roll < 50:
-            target = choose_target_object(pdf, rng)
-            if target is None:
-                raise RuntimeError("no candidate objects found for replacement")
-            sample_py = rng.choice(_resources_db)
-            ok = replace_object_with_sample(pdf, target, sample_py, rng)
+    # Replacement path
+    if action_roll < 50:
+        target = choose_target_object(pdf, rng)
+        if target is None:
+            raise RuntimeError("no candidate objects found for replacement")
+        sample_py = rng.choice(_resources_db)
+        ok = replace_object_with_sample(pdf, target, sample_py, rng)
+        if not ok:
+            raise RuntimeError("replacement failed")
+    # In-place mutation path
+    elif action_roll < 100:
+        target = choose_target_object(pdf, rng)
+        if target is None:
+            raise RuntimeError("no candidate objects found for in-place mutation")
+        if isinstance(target, pikepdf.Stream):
+            ok = mutate_stream_inplace(target, rng)
             if not ok:
-                raise RuntimeError("replacement failed")
-        # In-place mutation path
-        elif action_roll < 100:
-            target = choose_target_object(pdf, rng)
-            if target is None:
-                raise RuntimeError("no candidate objects found for in-place mutation")
-            if isinstance(target, pikepdf.Stream):
-                ok = mutate_stream_inplace(target, rng)
-                if not ok:
-                    raise RuntimeError("stream mutate failed")
-            elif isinstance(target, pikepdf.Dictionary):
-                ok = False
-                count = 10
-                for i in range(count):
-                    ok = mutate_dict_inplace(target, rng, pdf=pdf)
-                    if ok:
-                        break
-            else:
-                print("paskaperseeeee"*1000)
-                exit(1)
-                raise RuntimeError("unsupported target for inplace mutation")
-        # Structural / page operations
+                raise RuntimeError("stream mutate failed")
+        elif isinstance(target, pikepdf.Dictionary):
+            ok = False
+            count = 10
+            for i in range(count):
+                ok = mutate_dict_inplace(target, rng, pdf=pdf)
+                if ok:
+                    break
         else:
-            # shuffle pages occasionally
-            pages = list(pdf.pages)
-            if len(pages) > 1:
-                # deterministic shuffle by rng
-                perm = list(range(len(pages)))
-                # perform a small number of swaps depending on rng
-                swap_count = 1 + (rng.randrange(min(5, len(pages))))
-                for _ in range(swap_count):
-                    i = rng.randrange(len(pages))
-                    j = rng.randrange(len(pages))
-                    perm[i], perm[j] = perm[j], perm[i]
-                # apply permutation
-                new_pages = [pages[i] for i in perm]
-                # pdf.pages.clear()
-                for p in new_pages:
-                    pdf.pages.append(p)
-            else:
-                # fallback structural edit: replace resources object if present
-                for obj in pdf.objects:
-                    try:
-                        if isinstance(obj, pikepdf.Dictionary) and (set(k.strip("/") for k in obj.keys()) & {"Font", "XObject"}):
-                            sample_py = rng.choice(_resources_db)
-                            replace_object_with_sample(pdf, obj, sample_py, rng)
-                            break
-                    except Exception:
-                        pass
+            print("paskaperseeeee"*1000)
+            exit(1)
+            raise RuntimeError("unsupported target for inplace mutation")
+    # Structural / page operations
+    else:
+        # shuffle pages occasionally
+        pages = list(pdf.pages)
+        if len(pages) > 1:
+            # deterministic shuffle by rng
+            perm = list(range(len(pages)))
+            # perform a small number of swaps depending on rng
+            swap_count = 1 + (rng.randrange(min(5, len(pages))))
+            for _ in range(swap_count):
+                i = rng.randrange(len(pages))
+                j = rng.randrange(len(pages))
+                perm[i], perm[j] = perm[j], perm[i]
+            # apply permutation
+            new_pages = [pages[i] for i in perm]
+            # pdf.pages.clear()
+            for p in new_pages:
+                pdf.pages.append(p)
+        else:
+            # fallback structural edit: replace resources object if present
+            for obj in pdf.objects:
+                try:
+                    if isinstance(obj, pikepdf.Dictionary) and (set(k.strip("/") for k in obj.keys()) & {"Font", "XObject"}):
+                        sample_py = rng.choice(_resources_db)
+                        replace_object_with_sample(pdf, obj, sample_py, rng)
+                        break
+                except Exception:
+                    pass
 
     # Save mutated PDF to bytes
     out_buf = io.BytesIO()
@@ -1232,7 +1238,8 @@ if __name__ == "__main__":
         n = int(n)
         init(0)
         try:
-            cli_mutate_file(infile, outfile, times=n)
+            while not_reached:
+                cli_mutate_file(infile, outfile, times=1)
         except Exception as e:
             print("Mutation error: " + str(e))
             traceback.print_exc()

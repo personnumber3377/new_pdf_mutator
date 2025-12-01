@@ -1,0 +1,359 @@
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'/CIDInit /ProcSet fi'..., {
+  "/Length": 950
+})>
+[DEBUG] Called mutate_inferred with obj == <pikepdf.Dictionary(Type="/Annot")({
+  "/AP": {
+    "/N": pikepdf.Stream(owner=<...>, data=<...>, {
+      "/BBox": [ 0, 0, Decimal('89.639'), Decimal('13.843') ],
+      "/FormType": 1,
+      "/Length": 179,
+      "/Matrix": [ Decimal('1.0'), 0, 0, Decimal('1.0'), 0, 0 ],
+      "/Resources": {
+        "/Font": {
+          "/f1": {
+            "/BaseFont": "/ArialMT",
+            "/Encoding": "/WinAnsiEncoding",
+            "/FirstChar": 32,
+            "/FontDescriptor": {
+              "/Ascent": 2664,
+              "/CapHeight": 1005,
+              "/Descent": -211,
+              "/Flags": 4,
+              "/FontBBox": [ -664, -324, 2000, 1006 ],
+              "/FontName": "/ArialMT",
+              "/ItalicAngle": 0,
+              "/StemV": 80,
+              "/Type": "/FontDescriptor"
+            },
+            "/LastChar": 255,
+            "/Subtype": "/TrueType",
+            "/Type": <...>,
+            "/Widths": <...>
+          }
+        }
+      },
+      "/Subtype": <...>,
+      "/Type": <...>
+    })
+  },
+  "/BS": {
+    "/S": <...>,
+    "/Subtype": <...>,
+    "/W": <...>
+  },
+  "/CA": Decimal('1.0'),
+  "/Contents": "Bachelor's degree",
+  "/CreationDate": "D:20201130225516-05'00'",
+  "/DA": " /f1 11 Tf",
+  "/DS": "font:  'Arial' 11.0pt; text-align:left; color:#000000",
+  "/F": 4,
+  "/IT": "/FreeTextTypewriter",
+  "/M": "D:20201130225619-05'00'",
+  "/NM": "FA38C889EE2251995E0BB952F4B08EA9",
+  "/P": <Pdf.pages.from_objgen(72,0)>,
+  "/Q": 0,
+  "/RC": "<?xml version=\"1.0\"?><body xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:xfa=\"http://www.xfa.org/schema/xfa-data/1.0/\" xfa:APIVersion=\"Qoppa:12.1.0\" xfa:spec=\"2.0.2\" style=\"font-size:12.0pt;text-align:left;color:#000000;font-weight:normal;font-style:normal;font-family:Helvetica,sans-serif;font-stretch:normal\"><p><span style=\"font-family:Arial;font-weight:normal;font-style:normal;font-size:11.0pt;color:#000000;text-align:left\">Bachelor&apos;s degree</span></p></body>",
+  "/Rect": [ <...>, <...>, <...>, <...> ],
+  "/Rotation": 0,
+  "/Subj": "Typewriter",
+  "/Subtype": "/FreeText",
+  "/T": "jeff",
+  "/Type": "/Annot"
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'0.860001 0.899994 0.'..., {
+  "/Length": 82
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\x01\x00\x04\x02\x00\x01\x01\x01\x14EMMONL+Camb'..., {
+  "/Length": 8203
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'92 0 1 -69 90 15 d1\n'..., {
+  "/Length": 372
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'q\n53.333  0  0  10  '..., {
+  "/Length": 52
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Multiplying stream!!!
+[DEBUG] Called mutate_inferred with obj == <pikepdf.Dictionary(Type="/Annot")({
+  "/AP": {
+    "/D": {
+      "/Off": pikepdf.Stream(owner=<...>, data=<...>, {
+        "/BBox": [ 0, 0, Decimal('11.3'), Decimal('10.9') ],
+        "/FormType": 1,
+        "/Length": 73,
+        "/Matrix": [ Decimal('1.0'), 0, 0, Decimal('1.0'), 0, 0 ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject"
+      }),
+      "/Yes": pikepdf.Stream(owner=<...>, data=<...>, {
+        "/BBox": [ 0, 0, Decimal('11.3'), Decimal('10.9') ],
+        "/FormType": 1,
+        "/Length": 1271907,
+        "/Matrix": [ Decimal('1.0'), 0, 0, Decimal('1.0'), 0, 0 ],
+        "/Resources": {
+          "/Font": {
+            "/ZaDi": {
+              "/BaseFont": <...>,
+              "/Subtype": <...>,
+              "/Type": <...>
+            }
+          }
+        },
+        "/Subtype": <...>,
+        "/Type": <...>
+      })
+    },
+    "/N": <...>
+  },
+  "/AS": "/Yes",
+  "/DA": "0 0 0 rg /ZaDi 0 Tf",
+  "/DR": {
+    "/Font": <...>
+  },
+  "/DV": "/Yes",
+  "/F": 4,
+  "/FT": "/Btn",
+  "/MK": {
+    "/CA": <...>
+  },
+  "/Rect": [ <...>, <...>, <...>, <...> ],
+  "/Subtype": "/Widget",
+  "/T": "java",
+  "/Type": "/Annot",
+  "/V": "/Yes"
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'..., {
+  "/Length": 4096
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: pikepdf.Dictionary({
+  "/Font": {
+
+  },
+  "/ProcSet": [ "/PDF", "/Text", "/ImageC" ],
+  "/XObject": {
+
+  }
+})
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\n<template xmlns="ht'..., {
+  "/Length": 4613
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\x00\x00\x00\x03\x00\x00H\x81\x00\x00\x00\x00\x01#\x00\x00\x00\x00\x00\x00'..., {
+  "/Length": 80
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\x01\x00\x04\x04\x00\x01\x01\x01\x18VENLVK+Fira'..., {
+  "/Length": 4533
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'92 0 4 -70 89 15 d1\n'..., {
+  "/Length": 363
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'92 0 3 -70 90 14 d1\n'..., {
+  "/Length": 411
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: pikepdf.Dictionary({
+  "/Artifact": "/Private",
+  "/Aside": "/Note",
+  "/DocumentFragment": "/Art",
+  "/Em": "/Span",
+  "/FENote": "/Note",
+  "/H10": "/H6",
+  "/H7": "/H6",
+  "/H8": "/H6",
+  "/H9": "/H6",
+  "/Strong": "/Span",
+  "/Sub": "/Span",
+  "/Title": "/P",
+  "/codeline": "/Span",
+  "/description": "/L",
+  "/enumerate": "/L",
+  "/figures": "/Sect",
+  "/float": "/Note",
+  "/footnote": "/Note",
+  "/footnotelabel": "/Lbl",
+  "/footnotemark": "/Lbl",
+  "/item": "/LI",
+  "/itembody": "/LBody",
+  "/itemize": "/L",
+  "/itemlabel": "/Lbl",
+  "/list": "/L",
+  "/paragraph": "/H4",
+  "/part": "/P",
+  "/quotation": "/BlockQuote",
+  "/quote": "/BlockQuote",
+  "/section": "/H1",
+  "/section-number": "/Span",
+  "/subparagraph": "/H5",
+  "/subsection": "/H2",
+  "/subsubsection": "/H3",
+  "/tables": "/Sect",
+  "/text": "/P",
+  "/text-unit": "/Part",
+  "/theorem-like": "/Sect",
+  "/title": "/P",
+  "/verbatim": "/Code"
+})
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'..., {
+  "/Length": 4096
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'92 0 3 -69 90 12 d1\n'..., {
+  "/Length": 351
+})>
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\x00\x00\x0cHLino\x02\x10\x00\x00mntrRGB '..., {
+  "/Length": 3144
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'92 0 2 -70 90 15 d1\n'..., {
+  "/Length": 393
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'\x00\x00\r\xd4\x00\x00\x00\x00\x02 \x00\x00scnrRGB '..., {
+  "/Length": 3540
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Mutating stream!!!
+[DEBUG] Mutating stream!!!
+[DEBUG] Called mutate_inferred with obj == <pikepdf.Dictionary(Type="/Annot")({
+  "/AP": {
+    "/D": {
+
+    },
+    "/N": {
+      "/Off": pikepdf.Stream(owner=<...>, data=<...>, {
+        "/BBox": [ 0, 0, Decimal('18.002'), Decimal('18.002') ],
+        "/FormType": 1,
+        "/Length": 726,
+        "/Matrix": [ Decimal('1.0'), 0, 0, Decimal('1.0'), 0, 0 ],
+        "/Subtype": "/Form",
+        "/Type": "/XObject"
+      }),
+      "/highSchool": pikepdf.Stream(owner=<...>, data=<...>, {
+        "/Length": 4096
+      })
+    }
+  },
+  "/AS": "/Off",
+  "/BS": {
+    "/S": "/I",
+    "/W": 1
+  },
+  "/DA": "/ZapfDingbats 0 Tf 0 g",
+  "/F": 4,
+  "/M": "D:20240110195645",
+  "/MK": {
+    "/BC": [ 0, 0, 0 ],
+    "/BG": [ 1, 1, <...> ]
+  },
+  "/Parent": {
+    "/DA": <...>,
+    "/FT": <...>,
+    "/Ff": <...>,
+    "/Kids": <...>,
+    "/T": <...>,
+    "/V": <...>
+  },
+  "/Rect": [ <...>, <...>, <...>, <...> ],
+  "/Subtype": "/Widget",
+  "/Type": "/Annot"
+})>
+[DEBUG] Called mutate_inferred with obj == <pikepdf.Dictionary(Type="/Font")({
+  "/BaseFont": "/BAAAAA+Arial-BoldMT",
+  "/FirstChar": 0,
+  "/FontDescriptor": {
+    "/Ascent": 905,
+    "/CapHeight": 1010,
+    "/Descent": -211,
+    "/Flags": 4,
+    "/FontBBox": [ -627, -376, 2000, 1011 ],
+    "/FontFile2": pikepdf.Stream(owner=<...>, data=<...>, {
+      "/Length": 14213,
+      "/Length1": 17480
+    }),
+    "/FontName": "/BAAAAA+Arial-BoldMT",
+    "/ItalicAngle": 0,
+    "/StemV": 80,
+    "/Type": "/FontDescriptor"
+  },
+  "/LastChar": 13,
+  "/Subtype": "/TrueType",
+  "/ToUnicode": pikepdf.Stream(owner=<...>, data=b'/CIDInit/ProcSet fin'..., {
+    "/Length": 474
+  }),
+  "/Type": "/Font",
+  "/Widths": [ 750, 666, 722, 610, 277, 610, 389, 889, 666, 556, 556, 610, <...>, <...> ]
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'100.00000 276.89000 '..., {
+  "/Length": 130
+})>
+[DEBUG] Called mutate_inferred with obj == <pikepdf.Dictionary(Type="/Annot")({
+  "/AP": {
+    "/N": pikepdf.Stream(owner=<...>, data=<...>, {
+      "/Font": {
+
+      },
+      "/Length": 0,
+      "/ProcSet": [ "/PDF", "/Text", "/ImageC" ],
+      "/XObject": {
+
+      }
+    })
+  },
+  "/DA": "0 0 0 rg /F3 11 Tf",
+  "/DR": {
+    "/Font": {
+      "/F1": {
+        "/BaseFont": "/BAAAAA+Arial-BoldMT",
+        "/FirstChar": 0,
+        "/FontDescriptor": None,
+        "/LastChar": 13,
+        "/Subtype": "/TrueType",
+        "/ToUnicode": None,
+        "/Type": "/Font",
+        "/Widths": [ 750, 666, 722, 610, 277, 610, 389, 889, 666, 556, 556, 610, 277, 556 ]
+      },
+      "/ZaDi": {
+        "/BaseFont": "/ZapfDingbats",
+        "/Subtype": "/Type1",
+        "/Type": <...>
+      }
+    }
+  },
+  "/DV": "5",
+  "/F": 4,
+  "/FT": "/Tx",
+  "/M": "D:20240110195645",
+  "/Rect": [ <...>, <...>, <...>, <...> ],
+  "/Subtype": "/Widget",
+  "/T": "yearsOfExperience",
+  "/TU": "Value from 40 to 250 cm",
+  "/Type": "/Annot",
+  "/V": "6"
+})>
+[DEBUG] Mutating stream!!!
+[DEBUG] Multiplying stream!!!
+Wrote mutated output to output.pdf
