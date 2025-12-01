@@ -690,7 +690,7 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
 
     return True
 
-def mutate_stream_inplace(stream: Stream, rng: random.Random): # Here instead of just removing and adding tiny portions, can you please modify this to also duplicate huge chunks probabilistically and also duplicate huge chunks too?
+def mutate_stream_inplace(stream: Stream, rng: random.Random):
     """
     Mutate stream bytes in-place (read-modify-write) using rng.
     """
