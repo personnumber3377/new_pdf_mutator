@@ -1,0 +1,31 @@
+Wrote mutated output to output.pdf
+[DEBUG] Replacing object...
+[DEBUG] constructed: pikepdf.Dictionary(Type="/Font")({
+  "/BaseFont": "/Helvetica-Bold",
+  "/Encoding": "/WinAnsiEncoding",
+  "/Name": "/F3",
+  "/Subtype": "/Type1",
+  "/Type": "/Font"
+})
+Wrote mutated output to output.pdf
+[DEBUG] Mutating stream!!!
+Wrote mutated output to output.pdf
+[DEBUG] Mutating stream!!!
+Wrote mutated output to output.pdf
+[DEBUG] Mutating stream!!!
+Wrote mutated output to output.pdf
+[DEBUG] Replacing object...
+[DEBUG] constructed: <pikepdf.Stream(owner=<...>, data=b'92 0 6 -72 88 16 d1\n'..., {
+  "/Length": 392
+})>
+Wrote mutated output to output.pdf
+[DEBUG] FUCK!
+[DEBUG] Invalid target for inplace mutation: pikepdf.Array([ 236, 644, 883, 351, 286, 214, 315, 216, 462, 534, 403, 517, 505, 539, 509, 533, 528, 530, 216, 430, 924, 711, 627, 628, 687, 571, 544, 637, 654, 236, 459, 674, 543, 837, 676, 740, 609, 740, 647, 542, 594, 637, 712, 928, 665, 656, 580, 488, 559, 470, 534, 539, 429, 524, 524, 233, 233, 569, 301, 797, 524, 562, 559, 412, 444, 414, 519, 540, 774, 544, 537, 470, 545, 414, 439, 414, 500, 711, 571, 283, 740, 740, 637, 637, 488, 539, 274, 562, 562, 519, 519, 524, 740, 562, 531, 0 ])
+oof@elskun-lppri:~/new_pdf_mutator/pdfium$
+
+
+
+
+We need to fix this crash here I think...
+
+
