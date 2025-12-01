@@ -65,13 +65,16 @@ HEADER_SIZE = 0 # Zero byte header...
 DEFAULT_MUTATION_COUNT = 100
 MAX_DB_SIZE = 30000
 MAX_CALL_COUNT = 200000
+
 MAX_STRING_SIZE = 10000
+MAX_STRING_MULT_COUNT = 1000
+
 MAX_MUTATIONS = 20
 
 not_reached = True # This is the thing
 
 MAX_CHAR_INSERT_COUNT = 10000 # Add some characters...
-MAX_STRING_MULT_COUNT = 10000
+
 
 MAX_INTEGER_RANGE = 2**32 - 1
 
@@ -427,9 +430,19 @@ def collect_named_objects(pdf) -> List[Name]:
 
 def mut_string(string: str, rng: random.Random) -> str:
     global not_reached
-    not_reached = True
+    not_reached = False
     dprint("Called mut_string with this string here: "+str(string))
-    res = mutate_string_generic(string, rng) * random.randrange(1, MAX_STRING_MULT_COUNT)
+    rand_mult = random.randrange(1, MAX_STRING_MULT_COUNT)
+    dprint("rand_mult: "+str(rand_mult))
+    dprint("MAX_STRING_SIZE//len(string): "+str(MAX_STRING_SIZE//len(string)))
+    
+    intermediate = mutate_string_generic(string, rng)
+
+    res = intermediate * min(rand_mult, MAX_STRING_SIZE//len(intermediate))
+    # assert len(res) <= MAX_STRING_SIZE # Should be the maximum size thing...
+    if not len(res) <= MAX_STRING_SIZE:
+        print("poopooo"*1000)
+        exit(1)
     dprint("result: "+str(res))
     return res
 
