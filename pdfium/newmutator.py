@@ -900,10 +900,11 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             # not_reached = False
             return bytes(out.getvalue())
     except Exception as exception:
-        dprint("Poopoooo...")
-        dprint("Exception here: "+str(exception))
-        dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
-        exit(1)
+        return data
+        # dprint("Poopoooo...")
+        # dprint("Exception here: "+str(exception))
+        # dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
+        # exit(1)
 
 '''
 def mutate_pdf_file(
@@ -1910,11 +1911,11 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                 ok = mutate_dict_inplace(target, rng, pdf=pdf)
                 if ok:
                     break
-        else:
-            dprint("FUCK!")
-            dprint("Invalid target for inplace mutation: "+str(target))
-            exit(1)
-            raise RuntimeError("unsupported target for inplace mutation")
+        # else:
+        #     dprint("FUCK!")
+        #     dprint("Invalid target for inplace mutation: "+str(target))
+        #     exit(1)
+        #     raise RuntimeError("unsupported target for inplace mutation")
     # Structural / page operations
     else:
         # shuffle pages occasionally
