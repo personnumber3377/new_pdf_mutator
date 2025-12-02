@@ -143,6 +143,287 @@ DICT_TYPE_MAP = {
     "Title": "string", "Subject": "string", "Keywords": "string",
 }
 
+def rand_choice(rng: random.Random, seq):
+    if not seq:
+        return None
+    return seq[rng.randrange(len(seq))]
+
+
+def mutate_docinfo(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate the old-school document info dictionary."""
+    info = pdf.docinfo  # ensures dictionary exists
+    # Change some common fields
+    info[Name.Title] = rng.choice(HARD_CODED_STRINGS)
+    info[Name.Author] = rng.choice(HARD_CODED_STRINGS)
+    info[Name.Subject] = "mutated-subject-" + str(rng.randrange(1_000_000))
+    info[Name.Creator] = "pikepdf-mutator"
+    info[Name.Producer] = "pikepdf-mutator-libqpdf"
+
+    # Add some weird custom keys
+    info[Name("/FuzzKey")] = rng.choice(HARD_CODED_STRINGS)
+    info[Name("/VeryLongKey" + "X" * 30)] = "V" * 200
+
+
+def mutate_metadata(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate XMP metadata in a safe way using open_metadata()."""
+    try:
+        with pdf.open_metadata() as meta:
+            meta["dc:title"] = rng.choice(HARD_CODED_STRINGS)
+            meta["dc:creator"] = [rng.choice(HARD_CODED_STRINGS)]
+            meta["pdf:Keywords"] = "fuzz,mutated,property"
+            meta["xmp:ModifyDate"] = datetime.datetime.utcnow().isoformat() + "Z"
+    except Exception:
+        # Some PDFs have totally broken XMP; just ignore failures
+        pass
+
+
+def mutate_pages(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate page-level properties such as MediaBox, Rotate and Resources."""
+    for page in pdf.pages:
+        # Randomly rotate page
+        if rng.random() < 0.5:
+            page.Rotate = rng.choice([0, 90, 180, 270])
+
+        # Slightly tweak mediabox width/height using Decimal-safe operations
+        mb = page.MediaBox
+        if len(mb) == 4:
+            # Scale width / height by a small factor
+            for idx in (2, 3):
+                try:
+                    mb[idx] = mb[idx] * (1 + (rng.random() - 0.5) * 0.2)
+                except Exception:
+                    pass
+
+        # Corrupt /Resources a bit but still keep it a dictionary
+        if rng.random() < 0.3:
+            res = page.get("/Resources", None)
+            if isinstance(res, Dictionary):
+                # Add a bogus font or xobject entry
+                res[Name("/FuzzRes" + str(rng.randrange(100)))] = pdf.make_indirect(
+                    Dictionary(Fuzz="Yes", Time=str(datetime.datetime.utcnow()))
+                )
+
+
+def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate interactive form fields using both low-level AcroForm + high-level Form."""
+    if not hasattr(pdf, "acroform"):
+        return
+    acro = pdf.acroform
+    if not acro.exists:
+        return
+
+    # Toggle NeedAppearances flag
+    acro.needs_appearances = not acro.needs_appearances
+
+    # Mutate inherited default appearance stream
+    if rng.random() < 0.4:
+        da = acro.object.get("/DA", b"/Helv 12 Tf 0 g")
+        acro.object["/DA"] = da + b" % fuzzy"
+
+    # Mutate fields using the higher-level Form wrapper
+    form = Form(pdf)
+    for name, field in form.items():
+        # Hard-coded mutations by type
+        if isinstance(field, type(form["Text1"]) if "Text1" in form else type(field)):
+            # TextField-ish
+            if rng.random() < 0.7:
+                field.value = rng.choice(HARD_CODED_STRINGS)
+        # Checkbox
+        if field.__class__.__name__.endswith("CheckboxField"):
+            if rng.random() < 0.7:
+                field.checked = not field.checked
+        # Choice/Combobox
+        if field.__class__.__name__.endswith("ChoiceField"):
+            if field.options:
+                opt = rand_choice(rng, field.options)
+                if hasattr(opt, "display_value"):
+                    try:
+                        field.value = opt.display_value
+                    except ValueError:
+                        pass
+
+    # Mutate low-level field dictionaries a bit
+    for fobj in acro.fields:
+        # Add a custom key to the field dictionary directly
+        try:
+            fobj.obj["/FuzzFlag"] = rng.randrange(0, 2**16)
+        except Exception:
+            pass
+
+
+def mutate_annotations(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate annotation properties: flags, appearance states, contents."""
+    for page in pdf.pages:
+        annots = getattr(page, "Annots", None)
+        if not annots:
+            continue
+        for annot in annots:
+            # Mutate flags (bitfield)
+            if hasattr(annot, "F"):
+                try:
+                    annot.F = (int(annot.F) ^ rng.randrange(0, 0xFF)) & 0xFFFF
+                except Exception:
+                    pass
+
+            # Mutate Contents if it's a text annotation / widget
+            if "/Contents" in annot:
+                annot["/Contents"] = rng.choice(HARD_CODED_STRINGS)
+
+            # If annotation has an appearance dict, flip AS (appearance state)
+            ap = annot.get("/AP", None)
+            if isinstance(ap, Dictionary):
+                normal = ap.get("/N", None)
+                if isinstance(normal, Dictionary) and normal.keys():
+                    # Pick some random state name
+                    state_name = rand_choice(rng, list(normal.keys()))
+                    annot["/AS"] = state_name
+
+
+def mutate_attachments(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate embedded file specifications via Attachments mapping + AttachedFileSpec."""
+    attachments = pdf.attachments
+
+    # Randomly delete some attachments
+    for key in list(attachments.keys()):
+        if rng.random() < 0.3:
+            try:
+                del attachments[key]
+            except Exception:
+                pass
+
+    # Randomly add one attachment with some fuzz data
+    if rng.random() < 0.7:
+        data = rng.choice(HARD_CODED_STRINGS).encode("utf-8")
+        fs = AttachedFileSpec(
+            pdf,
+            data,
+            description="fuzz-attachment",
+            relationship=Name.Data,
+        )
+        fs.filename = f"fuzz-{rng.randrange(100000)}.txt"
+        attachments[fs.filename] = fs
+
+    # Mutate metadata of existing attachments
+    for name, fs in list(attachments.items()):
+        try:
+            fs.description = rng.choice(HARD_CODED_STRINGS)
+            attached = fs.get_file()
+            attached.mime_type = "application/x-fuzz"
+            attached.mod_date = datetime.datetime.utcnow()
+        except Exception:
+            pass
+
+
+def mutate_images(pdf: Pdf, rng: random.Random) -> None:
+    """
+    Mutate image *properties* via PdfImage, but do NOT touch raw image bytes.
+    We tweak: ColorSpace, BitsPerComponent, Decode, DecodeParms, filters, etc.
+    """
+    for page in pdf.pages:
+        images = getattr(page, "images", {})
+        for name, xobj in images.items():
+            try:
+                pim = PdfImage(xobj)
+            except Exception:
+                continue
+
+            # Mutate BitsPerComponent in dictionary (may confuse decoders)
+            if rng.random() < 0.4 and "BitsPerComponent" in xobj.stream_dict:
+                bpc = xobj.stream_dict["/BitsPerComponent"]
+                # Flip between some plausible values
+                new_bpc = rng.choice([1, 2, 4, 8, 16])
+                xobj.stream_dict["/BitsPerComponent"] = new_bpc
+
+            # Mutate Decode array
+            if rng.random() < 0.4:
+                comps = {
+                    "RGB": 3,
+                    "CMYK": 4,
+                    "L": 1,
+                    "1": 1,
+                }.get(pim.mode, 1)
+                dec = []
+                for _ in range(comps):
+                    lo = 0.0 if rng.random() < 0.5 else 1.0
+                    hi = 1.0 if lo == 0.0 else 0.0
+                    dec.extend([lo, hi])
+                xobj.stream_dict["/Decode"] = dec
+
+            # Flip BlackIs1 flag for CCITT-like images
+            dp = xobj.stream_dict.get("/DecodeParms", None)
+            if isinstance(dp, Dictionary) and rng.random() < 0.5:
+                dp["/BlackIs1"] = not bool(dp.get("/BlackIs1", False))
+
+            # Mutate ColorSpace to something compatible-but-weird
+            cs = xobj.stream_dict.get("/ColorSpace", None)
+            if cs == Name.DeviceGray and rng.random() < 0.3:
+                xobj.stream_dict["/ColorSpace"] = Name.DeviceRGB
+            elif cs == Name.DeviceRGB and rng.random() < 0.3:
+                xobj.stream_dict["/ColorSpace"] = Name.DeviceGray
+
+            # Optionally wrap ColorSpace in an Indexed colorspace with a fake palette
+            if rng.random() < 0.2 and not pim.indexed:
+                base_cs = xobj.stream_dict.get("/ColorSpace", Name.DeviceRGB)
+                hival = 3
+                palette = b"\x00\x00\x00\xff\x00\x00\x00\xff\x00\x00\x00\xff"
+                xobj.stream_dict["/ColorSpace"] = Array(
+                    [Name.Indexed, base_cs, hival, palette]
+                )
+
+
+def mutate_trailer(pdf: Pdf, rng: random.Random) -> None:
+    """Mutate some keys in the trailer dictionary (indirectly via pdf.trailer)."""
+    try:
+        tr = pdf.trailer
+        tr[Name("/FuzzTrailerKey")] = rng.choice(HARD_CODED_STRINGS)
+        # Randomize /Info ref if present (still an Object)
+        if "/Info" in tr:
+            tr["/Info"] = pdf.docinfo  # ensure it's a valid dictionary object
+    except Exception:
+        pass
+
+
+def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
+    """
+    In-memory variant: open PDF from bytes, mutate, and return bytes.
+    Good for plugging into AFL++ custom mutator / honggfuzz / etc.
+    """
+    rng = random.Random(seed)
+    bio = BytesIO(data)
+
+    with Pdf.open(bio, allow_overwriting_input=False) as pdf:
+        mutate_docinfo(pdf, rng)
+        mutate_metadata(pdf, rng)
+        mutate_pages(pdf, rng)
+        mutate_acroform(pdf, rng)
+        mutate_annotations(pdf, rng)
+        mutate_attachments(pdf, rng)
+        mutate_images(pdf, rng)
+        mutate_trailer(pdf, rng)
+
+        pdf.remove_unreferenced_resources()
+
+        out = BytesIO()
+        pdf.save(out, static_id=False, deterministic_id=False)
+        global not_reached
+        not_reached = False
+        return bytes(out.getvalue())
+
+'''
+def mutate_pdf_file(
+    in_path: str | Path, out_path: str | Path, seed: int | None = None
+) -> None:
+    """
+    File-based entry point. Reads input PDF, mutates, writes out_path.
+    """
+    in_path = Path(in_path)
+    out_path = Path(out_path)
+    data = in_path.read_bytes()
+    mutated = mutate_pdf_in_memory(data, seed=seed)
+    out_path.write_bytes(mutated)
+'''
+
+
 # -----------------------------
 # Utilities: convert pikepdf objects -> python-serializable repr and back
 # -----------------------------
@@ -1080,6 +1361,16 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
     Decisions are deterministic from rng.
     Raises on parse/convert errors (no silent fallback).
     """
+
+    if rng.random() < 0.2: # 20 percent chance to just mutate randomly the thing...
+        res = mutate_pdf_in_memory(buf, rng.randrange(1,1000000)) # data, seed
+        assert isinstance(res, bytes) # Should be bytes...
+        if len(res) >= max_size:
+            res = res[:max_size] # Maximum size...
+        return res # Return the result...
+
+
+
     try:
         pdf = pikepdf.open(io.BytesIO(buf))
     except Exception as e:
