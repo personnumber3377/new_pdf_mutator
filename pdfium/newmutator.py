@@ -70,8 +70,12 @@ DEFAULT_MUTATION_COUNT = 100
 MAX_DB_SIZE = 30000
 MAX_CALL_COUNT = 200000
 
+MAX_DRAW_OPERATIONS = 10
+
 MAX_STRING_SIZE = 10000
 MAX_STRING_MULT_COUNT = 1000
+
+SCALE_STUFF = 10.0
 
 MAX_MUTATIONS = 20
 
@@ -166,53 +170,237 @@ from pikepdf._core import AttachedFileSpec
 from pikepdf.models.image import PdfImage
 from pikepdf.form import Form
 
-def overlay_random_canvas(
-    pdf: Pdf,
-    *,
-    max_operations: int = 1000,
-    rng: Optional[random.Random] = None,
-) -> None:
+from pikepdf import Pdf, Stream, parse_content_stream
+from pikepdf.canvas import Canvas, ContentStreamBuilder, Text, Helvetica, Matrix
+import random
+
+def _random_low_level_ops(cs: ContentStreamBuilder, width, height, rng):
+    """Adds random low-level PDF operators using ContentStreamBuilder."""
+
+    ops = rng.randint(1, 50)
+
+    for _ in range(ops):
+        r = rng.random()
+
+        if r < 0.1:
+            cs.push()
+
+        elif r < 0.2:
+            cs.pop()
+
+        elif r < 0.3:
+            # Random concat matrix
+            a = rng.uniform(-1, 1)
+            d = rng.uniform(-1, 1)
+            e = rng.uniform(0, width)
+            f = rng.uniform(0, height)
+            m = Matrix(a, 0, 0, d, e, f)
+            cs.cm(m)
+
+        elif r < 0.45:
+            # Rectangle
+            x = rng.uniform(0, width)
+            y = rng.uniform(0, height)
+            w = rng.uniform(5, width / 2)
+            h = rng.uniform(5, height / 2)
+            cs.append_rectangle(x, y, w, h)
+            if rng.random() < 0.5:
+                cs.fill()
+            else:
+                cs.stroke_and_close()
+
+        elif r < 0.6:
+            # Line
+            x1 = rng.uniform(0, width)
+            y1 = rng.uniform(0, height)
+            x2 = rng.uniform(0, width)
+            y2 = rng.uniform(0, height)
+            cs.line(x1, y1, x2, y2)
+            cs.stroke_and_close()
+
+        elif r < 0.7:
+            # Dashes: correct usage
+            dash = rng.uniform(0.5, 20)
+            gap = rng.uniform(0.5, 20)
+            phase = int(rng.uniform(0, 10))
+            cs.set_dashes([dash, gap], phase)
+
+        elif r < 0.85:
+            # Marked content
+            cs.begin_marked_content(Name("/MC"))
+            cs.end_marked_content()
+
+        else:
+            # Text drawing
+            cs.begin_text()
+            cs.set_text_font(Name.Helvetica, rng.uniform(6, 24))
+            cs.set_text_matrix(Matrix(1, 0, 0, 1,
+                                      rng.uniform(0, width),
+                                      rng.uniform(0, height)))
+            text = f"rnd {rng.randint(0, 9999)}".encode("utf-16be")
+            cs.show_text(text)
+            cs.end_text()
+
+def insert_random_colorspace_image(pdf, rng=None):
+    if rng is None:
+        rng = random.Random()
+
+    page = pdf.pages[0]
+
+    # Select a random colorspace type
+    cs_type = rng.choice([
+        "DeviceGray",
+        "DeviceRGB",
+        "DeviceCMYK",
+        "CalGray",
+        "CalRGB",
+        "Lab",
+        "ICCBased",
+        "Indexed",
+        "Separation",
+        "DeviceN",
+    ])
+
+    # Very small demo image 8×8
+    width = 8
+    height = 8
+
+    # Generate raw image bytes (just random noise)
+    raw_bytes = bytes(rng.getrandbits(8) for _ in range(width * height * 4))
+
+    #
+    # Build ColorSpace dictionary
+    #
+    if cs_type == "DeviceGray":
+        colorspace = Name.DeviceGray
+
+    elif cs_type == "DeviceRGB":
+        colorspace = Name.DeviceRGB
+
+    elif cs_type == "DeviceCMYK":
+        colorspace = Name.DeviceCMYK
+
+    elif cs_type == "CalGray":
+        colorspace = Array([
+            Name.CalGray,
+            Dictionary({
+                Name.WhitePoint: Array([1.0, 1.0, 1.0]),
+            })
+        ])
+
+    elif cs_type == "CalRGB":
+        colorspace = Array([
+            Name.CalRGB,
+            Dictionary({
+                Name.WhitePoint: Array([1.0, 1.0, 1.0]),
+            })
+        ])
+
+    elif cs_type == "Lab":
+        colorspace = Array([
+            Name.Lab,
+            Dictionary({
+                Name.WhitePoint: Array([1.0, 1.0, 1.0]),
+                Name.Range: Array([-128, 127, -128, 127]),
+            })
+        ])
+
+    elif cs_type == "ICCBased":
+        # Minimal fake ICC profile (PDF accepts it)
+        icc_stream = pdf.make_stream(b"\x00" * 128)
+        icc_stream.N = 3
+        colorspace = Array([Name.ICCBased, icc_stream])
+
+    elif cs_type == "Indexed":
+        hival = 3
+        palette = bytes(rng.getrandbits(8) for _ in range((hival+1) * 3))
+        colorspace = Array([Name.Indexed, Name.DeviceRGB, hival, palette])
+
+    elif cs_type == "Separation":
+        tint_func = pdf.make_stream(b"{0 exch 1 exch sub}")
+        tint_func.FunctionType = 4
+        tint_func.Domain = [0, 1]
+        tint_func.Range = [0, 1, 0, 1, 0, 1, 0, 1]
+        colorspace = Array([
+            Name.Separation,
+            Name("SpotGreen"),
+            Name.DeviceCMYK,
+            tint_func,
+        ])
+
+    elif cs_type == "DeviceN":
+        tint_func = pdf.make_stream(b"{0 0 0 4 -1 roll}")
+        tint_func.FunctionType = 4
+        tint_func.Domain = [0, 1]
+        tint_func.Range = [0, 1, 0, 1, 0, 1, 0, 1]
+        colorspace = Array([
+            Name.DeviceN,
+            Array([Name.Black]),
+            Name.DeviceCMYK,
+            tint_func,
+        ])
+
+    else:
+        return  # should never happen
+
+    #
+    # Build image XObject
+    #
+    im_obj = Stream(
+        pdf,
+        raw_bytes,
+        Width=width,
+        Height=height,
+        BitsPerComponent=8,
+        ColorSpace=colorspace,
+        Subtype=Name.Image,
+        Type=Name.XObject,
+    )
+
+    # Attach to page Resources
+    res = page.Resources
+    if "XObject" not in res:
+        res["XObject"] = Dictionary()
+
+    name = Name(f"Im{len(res.XObject)}")
+    res.XObject[name] = im_obj
+
+    # Draw the image
+    page_content = f"100 0 0 100 50 50 cm /{name} Do".encode("ascii")
+    if page.Contents is None:
+        page.Contents = pdf.make_stream(page_content)
+    else:
+        existing = page.Contents.read_bytes()
+        page.Contents = pdf.make_stream(existing + b"\n" + page_content)
+
+def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=None):
     """
-    Overlay a randomly drawn Canvas on top of each page in the given PDF.
-
-    For each page:
-      * Create a Canvas with the same page size.
-      * Draw a random number (0..max_operations) of primitive operations
-        (lines, rectangles, state pushes/pops, color changes, transforms).
-      * Convert the Canvas to a content stream and append it to the existing
-        page contents.
-
-    This function *only* uses device color operators and simple geometry, so
-    it does not rely on page resources (fonts, XObjects, etc.), and it avoids
-    foreign-object issues by recreating the content stream in the original Pdf.
+    Modify the existing content streams of each page by APPENDING
+    new Canvas + raw ContentStreamBuilder operations.
     """
     if rng is None:
         rng = random.Random()
 
     for page in pdf.pages:
-        # Resolve page size from MediaBox
+
+        # Determine page width/height from MediaBox
         try:
             mb = page.MediaBox
             width = float(mb[2] - mb[0])
             height = float(mb[3] - mb[1])
         except Exception:
-            # Fallback if MediaBox is weird/missing
-            width, height = 612.0, 792.0  # US Letter-ish
+            width, height = 612.0, 792.0
 
+        #
+        # Create a Canvas matching page size — this DOES NOT overwrite anything.
+        #
         canvas = Canvas(page_size=(width, height))
 
-        # Number of random operations for this page (0..max_operations)
+        # High-level operations from your previous mutator
         n_ops = rng.randint(0, max_operations)
-
         for _ in range(n_ops):
             r = rng.random()
-
-            # Rough distribution:
-            # 0.0–0.15: push/pop and transform
-            # 0.15–0.45: random rectangles
-            # 0.45–0.75: random lines
-            # 0.75–1.0: color changes only (sets up following ops)
-            if r < 0.15:
+            if r < 0.20:
                 _random_stack_and_transform(canvas, rng)
             elif r < 0.45:
                 _random_rect(canvas, width, height, rng)
@@ -221,25 +409,61 @@ def overlay_random_canvas(
             else:
                 _random_color_change(canvas, rng)
 
-        # Turn Canvas into a standalone PDF, grab its content bytes,
-        # and inject into the original PDF as a fresh Stream.
-        # We *only* use the bytes, so there are no foreign objects.
+        #
+        # ★ New: ADD low-level ContentStreamBuilder mutations directly.
+        #
+        builder = ContentStreamBuilder()
+
+        # Add random low-level ops
+        _random_low_level_ops(builder, width, height, rng)
+
+        # Add the builder’s bytes into the Canvas *before* exporting.
+        canvas._cs.extend(builder.build())
+
+        #
+        # Convert the Canvas → PDF, *extract just the content stream*.
+        #
         overlay_pdf = canvas.to_pdf()
         overlay_page = overlay_pdf.pages[0]
         overlay_bytes = overlay_page.Contents.read_bytes()
 
-        # Build a new combined content stream in the *original* pdf
-        # to avoid ForeignObjectError.
-        if hasattr(page, "Contents") and page.Contents is not None:
-            try:
-                original_bytes = page.Contents.read_bytes()
-            except Exception:
-                original_bytes = b""
-            combined = original_bytes + b"\n" + overlay_bytes
-        else:
-            combined = overlay_bytes
+        #
+        # Merge into existing page content stream
+        #
 
-        page.Contents = Stream(pdf, combined)
+        # Select random drawing operation stream to append stuff...
+
+        dprint("page: "+str(page))
+        if "/Contents" in page: # Check the thing...
+            dprint("Yes the contents are here: "+str(page["/Contents"]))
+        conts = page["/Contents"] # Do the stuff...
+
+        # Now select random stream...
+
+        rand_stream = rng.choice(conts)
+
+        dprint("Here is the rand_stream: "+str(rand_stream))
+        
+        orig = rand_stream.read_bytes() # Read the stuff.
+        dprint("Here is the original data: "+str(orig))
+        # read_bytes()
+
+        '''
+        try:
+            dprint("Here is the instance of the thing: "+str(type(page.Contents)))
+            dprint("Here is the actual value of page.Contents: "+str(page.Contents))
+            orig = page.Contents.read_bytes() if page.Contents else b""
+        except Exception as e:
+            dprint("Some exception occurred when reading stream: "+str(e))
+            orig = b""
+        '''
+
+        if orig == b"":
+            dprint("the stream is not supposed to be empty...")
+
+        merged = orig + b"\n" + overlay_bytes
+        page.Contents = Stream(pdf, merged)
+        dprint("Succesfully entered the stuff!!!")
 
 
 def _random_stack_and_transform(canvas: Canvas, rng: random.Random) -> None:
@@ -250,10 +474,10 @@ def _random_stack_and_transform(canvas: Canvas, rng: random.Random) -> None:
     doesn't permanently corrupt subsequent operations.
     """
     # Random small scaling and translation
-    sx = 0.1 + rng.random() * 5.0
-    sy = 0.1 + rng.random() * 5.0
-    tx = -50.0 + rng.random() * 100.0
-    ty = -50.0 + rng.random() * 100.0
+    sx = 0.1 + rng.random() * MAX_SCALE_FACTOR
+    sy = 0.1 + rng.random() * MAX_SCALE_FACTOR
+    tx = -50.0 + rng.random() * MAX_SCALE_FACTOR
+    ty = -50.0 + rng.random() * MAX_SCALE_FACTOR
 
     m = Matrix().scaled(sx, sy).translated(tx, ty)
 
@@ -656,13 +880,20 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             mutate_images(pdf, rng)
             mutate_trailer(pdf, rng)
 
+            # if rng.random() < 0.3: # Add a random image thing...
+            #     insert_random_colorspace_image(pdf, rng=rng)
+
             # not_reached = False
+
+            # TODO Add here a way to add an image with the random colorspace stuff...
+
+
 
             pdf.remove_unreferenced_resources()
 
             # Do the stuff...
 
-            overlay_random_canvas(pdf, max_operations=1000, rng=rng)
+            overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
 
             out = io.BytesIO()
             pdf.save(out, static_id=False, deterministic_id=False)

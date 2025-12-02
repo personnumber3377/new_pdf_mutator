@@ -5,7 +5,7 @@
 # bug1245391_reduced_minified.pdf
 
 
-python3 newmutator.py --mutate-iter TAMReview.pdf output.pdf 10
+python3 newmutator.py --mutate-iter TAMReview.pdf output.pdf 1
 
 
 
