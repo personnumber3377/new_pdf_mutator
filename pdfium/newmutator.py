@@ -20,6 +20,7 @@ Environment:
 
 from __future__ import annotations
 
+import traceback
 import os
 import io
 import sys
@@ -31,6 +32,7 @@ import random
 import traceback
 import generic_mutator_bytes
 import copy
+import datetime
 
 sys.setrecursionlimit(20000)
 
@@ -97,6 +99,15 @@ PDF_DRAWING_OPS = [
     "Do"
 ]
 
+
+HARD_CODED_STRINGS = [
+    "FUZZ-HELLO",
+    "😈 fuzzed string",
+    "pikepdf-mutator",
+    "AAAAAAAAAAAA",
+    "🔥 fuzz fuzz fuzz 🔥",
+]
+
 MAX_INTEGER_RANGE = 2**32 - 1
 
 BANNED_KEYS = set(["/Length", "/Kids"])  # Do not modify these on stream dicts
@@ -151,6 +162,9 @@ from typing import Optional
 from pikepdf import Pdf, Stream, Matrix
 from pikepdf.canvas import Canvas, Color
 
+from pikepdf._core import AttachedFileSpec
+from pikepdf.models.image import PdfImage
+from pikepdf.form import Form
 
 def overlay_random_canvas(
     pdf: Pdf,
@@ -323,7 +337,8 @@ def _random_line(
             dash_len = rng.random() * 20 + 1
             gap_len = rng.random() * 20 + 1
             phase = int(rng.random() * 5)
-            canvas.do.dashes(dash_len, gap_len, phase)
+            # canvas.do.dashes(dash_len, gap_len, phase)
+            canvas.do.dashes(1, 1)
 
     # Maybe change stroke color
     if rng.random() < 0.5:
@@ -619,30 +634,45 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
     In-memory variant: open PDF from bytes, mutate, and return bytes.
     Good for plugging into AFL++ custom mutator / honggfuzz / etc.
     """
+
+    global not_reached
+
+    # not_reached = False
+
     rng = random.Random(seed)
-    bio = BytesIO(data)
+    bio = io.BytesIO(data)
+    # not_reached = False
 
-    with Pdf.open(bio, allow_overwriting_input=False) as pdf:
-        mutate_docinfo(pdf, rng)
-        mutate_metadata(pdf, rng)
-        mutate_pages(pdf, rng)
-        mutate_acroform(pdf, rng)
-        mutate_annotations(pdf, rng)
-        mutate_attachments(pdf, rng)
-        mutate_images(pdf, rng)
-        mutate_trailer(pdf, rng)
-
-        pdf.remove_unreferenced_resources()
-
-        # Do the stuff...
-
-        overlay_random_canvas(pdf, max_operations=1000, rng=rng)
-
-        out = BytesIO()
-        pdf.save(out, static_id=False, deterministic_id=False)
-        global not_reached
+    try:
         not_reached = False
-        return bytes(out.getvalue())
+        dprint("Paskaaaaaaa")
+        with Pdf.open(bio, allow_overwriting_input=False) as pdf:
+            mutate_docinfo(pdf, rng)
+            mutate_metadata(pdf, rng)
+            mutate_pages(pdf, rng)
+            mutate_acroform(pdf, rng)
+            mutate_annotations(pdf, rng)
+            mutate_attachments(pdf, rng)
+            mutate_images(pdf, rng)
+            mutate_trailer(pdf, rng)
+
+            # not_reached = False
+
+            pdf.remove_unreferenced_resources()
+
+            # Do the stuff...
+
+            overlay_random_canvas(pdf, max_operations=1000, rng=rng)
+
+            out = io.BytesIO()
+            pdf.save(out, static_id=False, deterministic_id=False)
+            # not_reached = False
+            return bytes(out.getvalue())
+    except Exception as exception:
+        dprint("Poopoooo...")
+        dprint("Exception here: "+str(exception))
+        dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
+        exit(1)
 
 '''
 def mutate_pdf_file(
@@ -1319,8 +1349,8 @@ def mutate_operator_list(ops, rng):
 
     # 5. reorder operators
     if choice == 4:
-        global not_reached
-        not_reached = False
+        # global not_reached
+        # not_reached = False
         rng.shuffle(ops)
         return ops
 
@@ -1862,7 +1892,7 @@ def cli_mutate_file(infile: str, outfile: str, times: int = 1):
         #     fh.write(data)
     with open(outfile, "wb") as fh:
         fh.write(data)
-    print(f"Wrote mutated output to {outfile}")
+    # print(f"Wrote mutated output to {outfile}")
 
 # Needed for libfuzzer
 def custom_mutator(buf: bytearray, add_buf, max_size: int, callback=None) -> bytearray:
