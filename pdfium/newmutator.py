@@ -143,6 +143,239 @@ DICT_TYPE_MAP = {
     "Title": "string", "Subject": "string", "Keywords": "string",
 }
 
+
+
+from __future__ import annotations
+
+import random
+from typing import Optional
+
+from pikepdf import Pdf, Stream, Matrix
+from pikepdf.canvas import Canvas, Color
+
+
+def overlay_random_canvas(
+    pdf: Pdf,
+    *,
+    max_operations: int = 1000,
+    rng: Optional[random.Random] = None,
+) -> None:
+    """
+    Overlay a randomly drawn Canvas on top of each page in the given PDF.
+
+    For each page:
+      * Create a Canvas with the same page size.
+      * Draw a random number (0..max_operations) of primitive operations
+        (lines, rectangles, state pushes/pops, color changes, transforms).
+      * Convert the Canvas to a content stream and append it to the existing
+        page contents.
+
+    This function *only* uses device color operators and simple geometry, so
+    it does not rely on page resources (fonts, XObjects, etc.), and it avoids
+    foreign-object issues by recreating the content stream in the original Pdf.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    for page in pdf.pages:
+        # Resolve page size from MediaBox
+        try:
+            mb = page.MediaBox
+            width = float(mb[2] - mb[0])
+            height = float(mb[3] - mb[1])
+        except Exception:
+            # Fallback if MediaBox is weird/missing
+            width, height = 612.0, 792.0  # US Letter-ish
+
+        canvas = Canvas(page_size=(width, height))
+
+        # Number of random operations for this page (0..max_operations)
+        n_ops = rng.randint(0, max_operations)
+
+        for _ in range(n_ops):
+            r = rng.random()
+
+            # Rough distribution:
+            # 0.0–0.15: push/pop and transform
+            # 0.15–0.45: random rectangles
+            # 0.45–0.75: random lines
+            # 0.75–1.0: color changes only (sets up following ops)
+            if r < 0.15:
+                _random_stack_and_transform(canvas, rng)
+            elif r < 0.45:
+                _random_rect(canvas, width, height, rng)
+            elif r < 0.75:
+                _random_line(canvas, width, height, rng)
+            else:
+                _random_color_change(canvas, rng)
+
+        # Turn Canvas into a standalone PDF, grab its content bytes,
+        # and inject into the original PDF as a fresh Stream.
+        # We *only* use the bytes, so there are no foreign objects.
+        overlay_pdf = canvas.to_pdf()
+        overlay_page = overlay_pdf.pages[0]
+        overlay_bytes = overlay_page.Contents.read_bytes()
+
+        # Build a new combined content stream in the *original* pdf
+        # to avoid ForeignObjectError.
+        if hasattr(page, "Contents") and page.Contents is not None:
+            try:
+                original_bytes = page.Contents.read_bytes()
+            except Exception:
+                original_bytes = b""
+            combined = original_bytes + b"\n" + overlay_bytes
+        else:
+            combined = overlay_bytes
+
+        page.Contents = Stream(pdf, combined)
+
+
+def _random_stack_and_transform(canvas: Canvas, rng: random.Random) -> None:
+    """
+    Randomly push/pop the graphics state and apply a simple transform.
+
+    We always wrap transforms in a save_state context so that any insane CTM
+    doesn't permanently corrupt subsequent operations.
+    """
+    # Random small scaling and translation
+    sx = 0.1 + rng.random() * 5.0
+    sy = 0.1 + rng.random() * 5.0
+    tx = -50.0 + rng.random() * 100.0
+    ty = -50.0 + rng.random() * 100.0
+
+    m = Matrix().scaled(sx, sy).translated(tx, ty)
+
+    # 50% of the time: use a context manager (q/Q)
+    # 50%: just push/pop explicitly (still safe)
+    if rng.random() < 0.5:
+        with canvas.do.save_state(cm=m):
+            # Optionally draw a simple primitive inside
+            if rng.random() < 0.5:
+                # Tiny line inside transformed state
+                canvas.do.line(0, 0, rng.random() * 10, rng.random() * 10)
+            else:
+                # Tiny rect
+                canvas.do.rect(0, 0, rng.random() * 10, rng.random() * 10, fill=False)
+    else:
+        canvas.do.push()
+        canvas.do.cm(m)
+        if rng.random() < 0.5:
+            canvas.do.line(0, 0, rng.random() * 10, rng.random() * 10)
+        else:
+            canvas.do.rect(0, 0, rng.random() * 10, rng.random() * 10, fill=True)
+        canvas.do.pop()
+
+
+def _random_rect(
+    canvas: Canvas,
+    width: float,
+    height: float,
+    rng: random.Random,
+) -> None:
+    """
+    Draw a random rectangle (filled, stroked, or both) within the page bounds.
+    """
+    # Random rect position and size (clamped to page)
+    w = rng.random() * width * 0.5 + 1.0
+    h = rng.random() * height * 0.5 + 1.0
+    x = rng.random() * max(width - w, 1.0)
+    y = rng.random() * max(height - h, 1.0)
+
+    # Randomly tweak line width occasionally
+    if rng.random() < 0.3:
+        lw = 0.1 + rng.random() * 10.0
+        canvas.do.line_width(lw)
+
+    # Maybe change stroke/fill color before drawing
+    if rng.random() < 0.5:
+        _random_color_change(canvas, rng)
+
+    fill_mode = rng.random()
+    if fill_mode < 0.33:
+        # stroke only
+        canvas.do.rect(x, y, w, h, fill=False)
+    elif fill_mode < 0.66:
+        # fill only
+        canvas.do.rect(x, y, w, h, fill=True)
+    else:
+        # fill and stroke: fill then stroke the same rect
+        canvas.do.rect(x, y, w, h, fill=True)
+        canvas.do.rect(x, y, w, h, fill=False)
+
+
+def _random_line(
+    canvas: Canvas,
+    width: float,
+    height: float,
+    rng: random.Random,
+) -> None:
+    """
+    Draw a random line segment across the page.
+    """
+    x1 = rng.random() * width
+    y1 = rng.random() * height
+    x2 = rng.random() * width
+    y2 = rng.random() * height
+
+    # Randomly choose dashes or solid
+    if rng.random() < 0.3:
+        if rng.random() < 0.5:
+            canvas.do.dashes()  # clear dashes
+        else:
+            dash_len = rng.random() * 20 + 1
+            gap_len = rng.random() * 20 + 1
+            phase = int(rng.random() * 5)
+            canvas.do.dashes(dash_len, gap_len, phase)
+
+    # Maybe change stroke color
+    if rng.random() < 0.5:
+        _random_color_change(canvas, rng, stroke_only=True)
+
+    canvas.do.line(x1, y1, x2, y2)
+
+
+def _random_color_change(
+    canvas: Canvas,
+    rng: random.Random,
+    *,
+    stroke_only: bool = False,
+) -> None:
+    """
+    Randomly change stroke and/or fill colors using device RGB.
+
+    Uses pikepdf.canvas.Color(r, g, b, a) with a hardcoded alpha (1.0).
+    """
+    r = rng.random()
+    g = rng.random()
+    b = rng.random()
+
+    col = Color(r, g, b, 1.0)
+
+    # Sometimes both stroke and fill, sometimes only one
+    if stroke_only:
+        canvas.do.stroke_color(col)
+    else:
+        if rng.random() < 0.5:
+            canvas.do.stroke_color(col)
+        if rng.random() < 0.9:
+            canvas.do.fill_color(col)
+
+
+# Example integration with your existing mutator:
+#
+# def mutate_pdf_inplace(pdf: Pdf, rng: Optional[random.Random] = None) -> None:
+#     if rng is None:
+#         rng = random.Random()
+#
+#     # 1. Existing property-level mutators (forms, attachments, etc.)
+#     mutate_forms(pdf, rng=rng)
+#     mutate_attachments(pdf, rng=rng)
+#     # ...other structural/property mutations...
+#
+#     # 2. Overlay random canvas drawing on each page
+#     overlay_random_canvas(pdf, max_operations=1000, rng=rng)
+
+
 def rand_choice(rng: random.Random, seq):
     if not seq:
         return None
@@ -402,6 +635,10 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
         mutate_trailer(pdf, rng)
 
         pdf.remove_unreferenced_resources()
+
+        # Do the stuff...
+
+        overlay_random_canvas(pdf, max_operations=1000, rng=rng)
 
         out = BytesIO()
         pdf.save(out, static_id=False, deterministic_id=False)
