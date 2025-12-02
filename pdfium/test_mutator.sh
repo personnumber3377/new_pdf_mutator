@@ -5,5 +5,5 @@
 # bug1245391_reduced_minified.pdf
 
 
-python3 newmutator.py --mutate-iter extgstate.pdf output.pdf 1
+python3 newmutator.py --mutate-iter extgstate.pdf output.pdf 10
 

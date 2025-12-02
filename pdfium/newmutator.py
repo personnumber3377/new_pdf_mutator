@@ -264,17 +264,17 @@ def _random_stack_and_transform(canvas: Canvas, rng: random.Random) -> None:
             # Optionally draw a simple primitive inside
             if rng.random() < 0.5:
                 # Tiny line inside transformed state
-                canvas.do.line(0, 0, rng.random() * 10, rng.random() * 10)
+                canvas.do.line(0, 0, rng.random() * MAX_SCALE_FACTOR, rng.random() * MAX_SCALE_FACTOR)
             else:
                 # Tiny rect
-                canvas.do.rect(0, 0, rng.random() * 10, rng.random() * 10, fill=False)
+                canvas.do.rect(0, 0, rng.random() * MAX_SCALE_FACTOR, rng.random() * MAX_SCALE_FACTOR, fill=False)
     else:
         canvas.do.push()
         canvas.do.cm(m)
         if rng.random() < 0.5:
-            canvas.do.line(0, 0, rng.random() * 10, rng.random() * 10)
+            canvas.do.line(0, 0, rng.random() * MAX_SCALE_FACTOR, rng.random() * MAX_SCALE_FACTOR)
         else:
-            canvas.do.rect(0, 0, rng.random() * 10, rng.random() * 10, fill=True)
+            canvas.do.rect(0, 0, rng.random() * MAX_SCALE_FACTOR, rng.random() * MAX_SCALE_FACTOR, fill=True)
         canvas.do.pop()
 
 
@@ -334,9 +334,9 @@ def _random_line(
         if rng.random() < 0.5:
             canvas.do.dashes()  # clear dashes
         else:
-            dash_len = rng.random() * 20 + 1
-            gap_len = rng.random() * 20 + 1
-            phase = int(rng.random() * 5)
+            dash_len = rng.random() * MAX_SCALE_FACTOR + 1
+            gap_len = rng.random() * MAX_SCALE_FACTOR + 1
+            phase = int(rng.random() * MAX_SCALE_FACTOR)
             # canvas.do.dashes(dash_len, gap_len, phase)
             canvas.do.dashes(1, 1)
 
@@ -1043,7 +1043,7 @@ def mutate_string_generic(string: str, rng: random.Random) -> str: # Generic str
 # ————————————————————————————————
 
 def mutate_int(val, rng):
-    return val + rng.randint(-2000, 2000)
+    return val + rng.randint(-MAX_INTEGER_RANGE, MAX_INTEGER_RANGE)
 
 
 def mutate_number(val, rng):
@@ -1943,6 +1943,7 @@ if __name__ == "__main__":
     ap.add_argument("--pkl-path", default=str(DEFAULT_PKL_PATH))
     ap.add_argument("--mutate", nargs=2, metavar=("IN", "OUT"), help="Mutate IN -> OUT (single pass)")
     ap.add_argument("--mutate-iter", nargs=3, metavar=("IN", "OUT", "N"), help="Mutate IN repeatedly N times")
+    ap.add_argument("--run-until", help="Run until the specified point in the code...") # Do the stuff..
     args = ap.parse_args()
 
     if args.build_db:
@@ -1962,6 +1963,19 @@ if __name__ == "__main__":
     if args.mutate_iter:
         infile, outfile, n = args.mutate_iter
         n = int(n)
+        init(0)
+        try:
+            # while not_reached:
+            cli_mutate_file(infile, outfile, times=n)
+        except Exception as e:
+            print("Mutation error: " + str(e))
+            traceback.print_exc()
+        sys.exit(0)
+
+    if args.try_until:
+        # if args.mutate_iter:
+        # infile, outfile, n = args.mutate_iter
+        # n = int(n)
         init(0)
         try:
             while not_reached:
