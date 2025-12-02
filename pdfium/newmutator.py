@@ -18,6 +18,8 @@ Environment:
  - MUTATOR_PKL_PATH : path to pickle DB (default ./resources.pkl)
 """
 
+from __future__ import annotations
+
 import os
 import io
 import sys
@@ -142,10 +144,6 @@ DICT_TYPE_MAP = {
     "Producer": "string", "Creator": "string", "Author": "string",
     "Title": "string", "Subject": "string", "Keywords": "string",
 }
-
-
-
-from __future__ import annotations
 
 import random
 from typing import Optional
