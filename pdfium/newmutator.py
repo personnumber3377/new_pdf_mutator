@@ -1459,38 +1459,7 @@ def mutate_array(arr: Array, rng, pdf):
         elem = arr[idx]
 
         if isinstance(elem, int):
-            dprint("Here is the \"array\" object: "+str(arr))
-            dprint("dir: "+str(arr.__dir__()))
-            # arr.remove(elem) # Delete the element...
-
-            dprint("Type of the element: "+str(type(arr[0])))
-
-            #arr = arr.as_list()
-            #arr = Array(arr) # Make a list thing...
-            # if isinstance(arr, Object):
-            # Do the stuff...
-            #arr = arr.wrap_in_array()
-            arr = Array(arr)
-            dprint("Type of array after conversion: "+str(type(arr)))
-            assert isinstance(arr, Array) # Should be array...
-            # arr.pop(idx)
-            dprint("paskaaaaa")
-            # arr.insert(idx, decimal.Decimal(elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR)))) #  = elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR))
-            # arr.insert(idx, Object(decimal.Decimal(elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR)))))
-            # arr.insert(idx, Object(elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR))))
-            not_reached = False
-            # MAX_INTEGER_THING
-            # scaled = int(elem * rng.randrange(-int(MAX_INTEGER_THING), int(MAX_INTEGER_THING)))
-            scaled = int(rng.randrange(-int(MAX_INTEGER_THING), int(MAX_INTEGER_THING)))
-            dprint("after scale....")
-            dec_shit = clamp_int_32(scaled)
-            # dec_shit = decimal.Decimal(clamp_int_32(scaled))
-            dprint("Trying to insert the thing...")
-            # arr.insert(idx, dec_shit)
-            dprint("Here is the array before the bullshit: "+str(arr))
-            arr.extend([dec_shit])
-            dprint("Here is the array after the bullshit: "+str(arr))
-            dprint("Put the thing into the thing...")
+            arr[idx] = random.randrange(1000) # Just put an integer there...
             return arr
         elif isinstance(elem, float):
             arr[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
