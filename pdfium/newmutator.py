@@ -1309,7 +1309,10 @@ def rng_from_buf(buf: bytes) -> random.Random:
     # seed_int = int.from_bytes(h[:8], "little")
     # seed_thing = random.randrange(1,1000)
     # print("seed: "+str(seed_thing))
-    return random.Random(random.randrange(1,10000000)) # random.Random(len(buf)) # random.Random(seed_int) # random.Random(seed_thing) # random.Random(random.randrange(1000000)) # random.Random(seed_int)
+    # rand_thing = random.randrange(1, 1000000000000)
+    # dprint("We chose this random thing here: "+str(rand_thing))
+    rand_thing = 525584941424 # Hardcoded bullshit here...
+    return random.Random(rand_thing) # random.Random(random.randrange(1,10000000)) # random.Random(len(buf)) # random.Random(seed_int) # random.Random(seed_thing) # random.Random(random.randrange(1000000)) # random.Random(seed_int)
 
 
 # -----------------------------
@@ -1484,7 +1487,9 @@ def mutate_array(arr: Array, rng, pdf):
             # dec_shit = decimal.Decimal(clamp_int_32(scaled))
             dprint("Trying to insert the thing...")
             # arr.insert(idx, dec_shit)
+            dprint("Here is the array before the bullshit: "+str(arr))
             arr.extend([dec_shit])
+            dprint("Here is the array after the bullshit: "+str(arr))
             dprint("Put the thing into the thing...")
             return arr
         elif isinstance(elem, float):
@@ -1882,10 +1887,10 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random):
 
 def choose_target_object(pdf: pikepdf.Pdf, rng: random.Random):
     candidates = []
-    for obj in pdf.objects:
+    for i, obj in enumerate(pdf.objects):
         try:
             if isinstance(obj, (pikepdf.Stream, pikepdf.Dictionary, pikepdf.Array)) and not is_critical_object(obj, pdf): # Originally did not have pikepdf.Array
-                candidates.append(obj)
+                candidates.append(tuple((obj, i)))
         except Exception:
             continue
     if not candidates:
@@ -2083,7 +2088,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
 
     # Replacement path
     if action_roll < 50:
-        target = choose_target_object(pdf, rng)
+        target, _ = choose_target_object(pdf, rng)
         if target is None:
             raise RuntimeError("no candidate objects found for replacement")
         sample_py = rng.choice(_resources_db)
@@ -2092,7 +2097,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
             raise RuntimeError("replacement failed")
     # In-place mutation path
     elif action_roll < 100:
-        target = choose_target_object(pdf, rng)
+        target, target_index = choose_target_object(pdf, rng)
         if target is None:
             raise RuntimeError("no candidate objects found for in-place mutation")
         if isinstance(target, pikepdf.Stream):
@@ -2111,8 +2116,10 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                     exit(1)
         elif isinstance(target, pikepdf.Array): # Mutate array
             dprint("Before target: "+str(target))
-            mutate_array(target, rng, pdf=pdf) # Mutate the thing...
-            dprint("After mutate_array target: "+str(target))
+            new_array = mutate_array(target, rng, pdf=pdf) # Mutate the thing...
+            dprint("The mutate_array returned this object here: "+str(new_array))
+            pdf.objects[target_index] = new_array # assign..
+            dprint("After mutate_array target: "+str(pdf.objects[target_index]))
             # if ok:
             #     break
         else:
