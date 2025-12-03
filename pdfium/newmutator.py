@@ -1431,8 +1431,9 @@ def mutate_array(arr: Array, rng, pdf):
     action = rng.choice(["mutate_elem", "duplicate", "remove", "append"])
 
     if action == "mutate_elem":
-        idx = rng.randrange(len(arr))
+        assert isinstance(arr, Array) # Actually should be an array...
         arr = arr.as_list()
+        idx = rng.randrange(len(arr))
         elem = arr[idx]
 
         if isinstance(elem, int):
