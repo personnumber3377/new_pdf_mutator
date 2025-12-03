@@ -2205,9 +2205,9 @@ if __name__ == "__main__":
             traceback.print_exc()
         sys.exit(0)
 
-    if args.try_until:
+    if args.run_until:
         # if args.mutate_iter:
-        infile, outfile = args.mutate_iter
+        infile, outfile = args.run_until
         # n = int(n)
         init(0)
         try:
