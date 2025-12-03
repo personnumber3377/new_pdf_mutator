@@ -75,6 +75,8 @@ MAX_DRAW_OPERATIONS = 10
 MAX_STRING_SIZE = 10000
 MAX_STRING_MULT_COUNT = 1000
 
+MAX_DA_MUTATION_STEPS = 10
+
 SCALE_STUFF = 10.0
 
 MAX_MUTATIONS = 20
@@ -687,7 +689,7 @@ def mutate_da_string(da_bytes, rng):
     Mutate a /DA string using VALID PDF text-drawing operators.
     Produces weird but still legal appearance instructions.
     """
-
+    dprint("Doing the thing...")
     # Convert to text safely
     try:
         da = da_bytes.decode("latin1")
@@ -697,26 +699,29 @@ def mutate_da_string(da_bytes, rng):
     # Possible valid drawing fragments
     parts = []
 
-    if rng.random() < 0.7:
-        parts.append(f"/Helv {rng.randint(1, 40)} Tf")        # random font size
-    if rng.random() < 0.7:
-        parts.append(f"{rng.uniform(0,1):.3f} g")             # non-stroke color
-    if rng.random() < 0.7:
-        parts.append(f"{rng.uniform(0,1):.3f} G")             # stroke color
-    if rng.random() < 0.5:
-        parts.append(f"{rng.randint(-20,20)} Tc")             # char spacing
-    if rng.random() < 0.5:
-        parts.append(f"{rng.randint(-20,20)} Tw")             # word spacing
-    if rng.random() < 0.3:
-        # random text matrix (valid)
-        a = rng.uniform(0.5, 2)
-        d = rng.uniform(0.5, 2)
-        e = rng.randint(-10, 10)
-        f = rng.randint(-10, 10)
-        parts.append(f"{a} 0 0 {d} {e} {f} Tm")
+    for _ in range(rng.randrange(MAX_DA_MUTATION_STEPS)):
+
+        if rng.random() < 0.7:
+            parts.append(f"/Helv {rng.randint(1, 10000)} Tf")        # random font size
+        if rng.random() < 0.7:
+            parts.append(f"{rng.uniform(0,1):.3f} g")             # non-stroke color
+        if rng.random() < 0.7:
+            parts.append(f"{rng.uniform(0,1):.3f} G")             # stroke color
+        if rng.random() < 0.5:
+            parts.append(f"{rng.randint(-10000 ,10000)} Tc")             # char spacing
+        if rng.random() < 0.5:
+            parts.append(f"{rng.randint(-10000,10000)} Tw")             # word spacing
+        if rng.random() < 0.3:
+            # random text matrix (valid)
+            a = rng.uniform(0.5, 2)
+            d = rng.uniform(0.5, 2)
+            e = rng.randint(-10000, 10000)
+            f = rng.randint(-10000, 10000)
+            parts.append(f"{a} 0 0 {d} {e} {f} Tm")
 
     # Join into a valid DA string
     mutated = " ".join(parts)
+    dprint("Here is the mutated DA string: "+str(mutated))
     if not mutated:
         mutated = "/Helv 12 Tf 0 g"
 
@@ -739,21 +744,37 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
         # acro.object["/DA"] = da + b" % fuzzy"
 
         acro = pdf.acroform
-        acro_dict = pdf.root.get("/AcroForm", None)   # raw dictionary
+        acro_dict = pdf.Root.get("/AcroForm", None)   # raw dictionary
 
         if isinstance(acro_dict, Dictionary):
+            if "/DA" not in acro_dict: # Check the stuff...
+                dprint("DA not found here: "+str(acro_dict))
+                exit(1)
             da = acro_dict.get("/DA", b"/Helv 12 Tf 0 g")
             # Replace with valid drawing-like DA (see fix #3)
+            global not_reached
+            not_reached = False # Is reached...
             acro_dict["/DA"] = mutate_da_string(da, rng)
+            pdf.generate_appearance_streams()
+            dprint("Here is the final /DA stuff: "+str(acro_dict["/DA"]))
+            
+            try:
+                for fdict in acro.fields:
+                    ap = fdict.obj.get("/AP", None)
+                    if isinstance(ap, Dictionary):
+                        # Delete normal appearance
+                        if "/N" in ap:
+                            del ap["/N"]
+            except Exception:
+                pass
+
+            return # Return here...
+
 
     # Mutate fields using the higher-level Form wrapper
     form = Form(pdf)
     for name, field in form.items():
         # Hard-coded mutations by type
-        if isinstance(field, type(form["Text1"]) if "Text1" in form else type(field)):
-            # TextField-ish
-            if rng.random() < 0.7:
-                field.value = rng.choice(HARD_CODED_STRINGS)
         # Checkbox
         if field.__class__.__name__.endswith("CheckboxField"):
             if rng.random() < 0.7:
@@ -774,7 +795,8 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
 
             # Editable combobox → allow any value
             if field.is_combobox and field.allow_edit:
-                field.value = rng.choice(HARD_CODED_STRINGS)
+                # field.value = rng.choice(HARD_CODED_STRINGS)
+                field.value = mutate_string(str(field.value), rng) # Mutate the string
                 continue
 
             # Otherwise MUST pick one of the preset options
@@ -785,6 +807,13 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
                 except Exception:
                     pass
             continue
+
+        elif isinstance(field, type(form["Text1"]) if "Text1" in form else type(field)):
+            # TextField-ish
+            dprint("Mutating this here: "+str(field))
+            if rng.random() < 0.7:
+                # field.value = rng.choice(HARD_CODED_STRINGS)
+                field.value = mutate_string(str(field.value), rng)
 
     # Mutate low-level field dictionaries a bit
     for fobj in acro.fields:
@@ -945,21 +974,25 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
         # not_reached = False
         # dprint("Paskaaaaaaa")
         with Pdf.open(bio, allow_overwriting_input=False) as pdf:
+            '''
             mutate_docinfo(pdf, rng)
             mutate_metadata(pdf, rng)
             mutate_pages(pdf, rng)
+            '''
             mutate_acroform(pdf, rng)
+            '''
             mutate_annotations(pdf, rng)
             mutate_attachments(pdf, rng)
             mutate_images(pdf, rng)
             mutate_trailer(pdf, rng)
+            '''
             if rng.random() < 0.3: # Add a random image thing...
                 dprint("Inserting a random image...")
                 insert_random_colorspace_image(pdf, rng=rng)
                 # not_reached = False
             pdf.remove_unreferenced_resources()
             # Do the stuff...
-            overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
+            # overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
             out = io.BytesIO()
             pdf.save(out, static_id=False, deterministic_id=False)
             # not_reached = False
@@ -1297,6 +1330,8 @@ def collect_named_objects(pdf) -> List[Name]:
 def mut_string(string: str, rng: random.Random) -> str:
     global not_reached
     # not_reached = False
+    if string == "": # Check for empty strings before trying to mutate the object...
+        string = "samplestringhere....erereree"
     dprint("Called mut_string with this string here: "+str(string))
     rand_mult = random.randrange(1, MAX_STRING_MULT_COUNT)
     dprint("rand_mult: "+str(rand_mult))
@@ -1319,7 +1354,11 @@ def mutate_string_generic(string: str, rng: random.Random) -> str: # Generic str
             action = rng.choice(["dup", "remove", "flip"])
             if action == "dup":
                 start = rng.randrange(len(s))
-                end = rng.randrange(start+1, len(s))
+                if start+1 == len(s):
+                    # Avoid empty ranges.
+                    end = 1_000_000_000
+                else:
+                    end = rng.randrange(start+1, len(s))
                 piece = s[start:end]
                 insert_at = rng.randrange(len(s))
                 dprint("Doing the string stuff...")
@@ -1650,8 +1689,6 @@ def mutate_operator_list(ops, rng):
 
     # 5. reorder operators
     if choice == 4:
-        # global not_reached
-        # not_reached = False
         rng.shuffle(ops)
         return ops
 
