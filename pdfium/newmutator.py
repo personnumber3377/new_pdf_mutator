@@ -682,6 +682,45 @@ def mutate_pages(pdf: Pdf, rng: random.Random) -> None:
                     Dictionary(Fuzz="Yes", Time=str(datetime.datetime.utcnow()))
                 )
 
+def mutate_da_string(da_bytes, rng):
+    """
+    Mutate a /DA string using VALID PDF text-drawing operators.
+    Produces weird but still legal appearance instructions.
+    """
+
+    # Convert to text safely
+    try:
+        da = da_bytes.decode("latin1")
+    except Exception:
+        da = "/Helv 12 Tf 0 g"
+
+    # Possible valid drawing fragments
+    parts = []
+
+    if rng.random() < 0.7:
+        parts.append(f"/Helv {rng.randint(1, 40)} Tf")        # random font size
+    if rng.random() < 0.7:
+        parts.append(f"{rng.uniform(0,1):.3f} g")             # non-stroke color
+    if rng.random() < 0.7:
+        parts.append(f"{rng.uniform(0,1):.3f} G")             # stroke color
+    if rng.random() < 0.5:
+        parts.append(f"{rng.randint(-20,20)} Tc")             # char spacing
+    if rng.random() < 0.5:
+        parts.append(f"{rng.randint(-20,20)} Tw")             # word spacing
+    if rng.random() < 0.3:
+        # random text matrix (valid)
+        a = rng.uniform(0.5, 2)
+        d = rng.uniform(0.5, 2)
+        e = rng.randint(-10, 10)
+        f = rng.randint(-10, 10)
+        parts.append(f"{a} 0 0 {d} {e} {f} Tm")
+
+    # Join into a valid DA string
+    mutated = " ".join(parts)
+    if not mutated:
+        mutated = "/Helv 12 Tf 0 g"
+
+    return mutated.encode("latin1")
 
 def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
     """Mutate interactive form fields using both low-level AcroForm + high-level Form."""
@@ -696,8 +735,16 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
 
     # Mutate inherited default appearance stream
     if rng.random() < 0.4:
-        da = acro.object.get("/DA", b"/Helv 12 Tf 0 g")
-        acro.object["/DA"] = da + b" % fuzzy"
+        # da = acro.object.get("/DA", b"/Helv 12 Tf 0 g")
+        # acro.object["/DA"] = da + b" % fuzzy"
+
+        acro = pdf.acroform
+        acro_dict = pdf.root.get("/AcroForm", None)   # raw dictionary
+
+        if isinstance(acro_dict, Dictionary):
+            da = acro_dict.get("/DA", b"/Helv 12 Tf 0 g")
+            # Replace with valid drawing-like DA (see fix #3)
+            acro_dict["/DA"] = mutate_da_string(da, rng)
 
     # Mutate fields using the higher-level Form wrapper
     form = Form(pdf)
@@ -713,6 +760,7 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
                 field.checked = not field.checked
         # Choice/Combobox
         if field.__class__.__name__.endswith("ChoiceField"):
+            '''
             if field.options:
                 opt = rand_choice(rng, field.options)
                 if hasattr(opt, "display_value"):
@@ -720,6 +768,23 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
                         field.value = opt.display_value
                     except ValueError:
                         pass
+            '''
+
+            opts = list(field.options)
+
+            # Editable combobox → allow any value
+            if field.is_combobox and field.allow_edit:
+                field.value = rng.choice(HARD_CODED_STRINGS)
+                continue
+
+            # Otherwise MUST pick one of the preset options
+            if opts:
+                try:
+                    sel = rng.choice(opts)
+                    field.value = sel.display_value
+                except Exception:
+                    pass
+            continue
 
     # Mutate low-level field dictionaries a bit
     for fobj in acro.fields:
