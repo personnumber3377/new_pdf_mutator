@@ -752,8 +752,8 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
                 exit(1)
             da = acro_dict.get("/DA", b"/Helv 12 Tf 0 g")
             # Replace with valid drawing-like DA (see fix #3)
-            global not_reached
-            not_reached = False # Is reached...
+            # global not_reached
+            # not_reached = False # Is reached...
             acro_dict["/DA"] = mutate_da_string(da, rng)
             pdf.generate_appearance_streams()
             dprint("Here is the final /DA stuff: "+str(acro_dict["/DA"]))
@@ -1531,6 +1531,8 @@ def mutate_inferred(obj, key, val, rng, depth, pdf):
 
         # ---- Names ----
         if isinstance(val, Name):
+            global not_reached
+            not_reached = False
             obj[key] = mutate_name(val, rng, pdf)
             return
 
