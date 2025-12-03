@@ -360,7 +360,8 @@ def insert_random_colorspace_image(pdf, rng=None):
     # Attach to page Resources
     res = page.Resources
     if "XObject" not in res:
-        res["XObject"] = Dictionary()
+        # res["XObject"] = Dictionary()
+        res[Name.XObject] = Dictionary()
 
     name = Name(f"Im{len(res.XObject)}")
     res.XObject[name] = im_obj
@@ -880,8 +881,8 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             mutate_images(pdf, rng)
             mutate_trailer(pdf, rng)
 
-            # if rng.random() < 0.3: # Add a random image thing...
-            #     insert_random_colorspace_image(pdf, rng=rng)
+            if rng.random() < 0.3: # Add a random image thing...
+                insert_random_colorspace_image(pdf, rng=rng)
 
             # not_reached = False
 
@@ -2175,7 +2176,7 @@ if __name__ == "__main__":
     ap.add_argument("--pkl-path", default=str(DEFAULT_PKL_PATH))
     ap.add_argument("--mutate", nargs=2, metavar=("IN", "OUT"), help="Mutate IN -> OUT (single pass)")
     ap.add_argument("--mutate-iter", nargs=3, metavar=("IN", "OUT", "N"), help="Mutate IN repeatedly N times")
-    ap.add_argument("--run-until", help="Run until the specified point in the code...") # Do the stuff..
+    ap.add_argument("--run-until", nargs=2, metavar=("IN", "OUT"), help="Run until the specified point in the code...") # Do the stuff..
     args = ap.parse_args()
 
     if args.build_db:
@@ -2206,7 +2207,7 @@ if __name__ == "__main__":
 
     if args.try_until:
         # if args.mutate_iter:
-        # infile, outfile, n = args.mutate_iter
+        infile, outfile = args.mutate_iter
         # n = int(n)
         init(0)
         try:
