@@ -284,7 +284,8 @@ def insert_random_colorspace_image(pdf, rng=None):
         colorspace = Array([
             Name.CalGray,
             Dictionary({
-                Name.WhitePoint: Array([1.0, 1.0, 1.0]),
+                '/WhitePoint': Array([1.0, 1.0, 1.0]),
+                # Name.WhitePoint: Array([1.0, 1.0, 1.0]),
             })
         ])
 
@@ -292,7 +293,7 @@ def insert_random_colorspace_image(pdf, rng=None):
         colorspace = Array([
             Name.CalRGB,
             Dictionary({
-                Name.WhitePoint: Array([1.0, 1.0, 1.0]),
+                '/WhitePoint': Array([1.0, 1.0, 1.0]),
             })
         ])
 
@@ -300,8 +301,8 @@ def insert_random_colorspace_image(pdf, rng=None):
         colorspace = Array([
             Name.Lab,
             Dictionary({
-                Name.WhitePoint: Array([1.0, 1.0, 1.0]),
-                Name.Range: Array([-128, 127, -128, 127]),
+                '/WhitePoint': Array([1.0, 1.0, 1.0]),
+                '/Range': Array([-128, 127, -128, 127]),
             })
         ])
 
