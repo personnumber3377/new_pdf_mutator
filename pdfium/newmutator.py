@@ -974,25 +974,25 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
         # not_reached = False
         # dprint("Paskaaaaaaa")
         with Pdf.open(bio, allow_overwriting_input=False) as pdf:
-            '''
+            
             mutate_docinfo(pdf, rng)
             mutate_metadata(pdf, rng)
             mutate_pages(pdf, rng)
-            '''
+            
             mutate_acroform(pdf, rng)
-            '''
+            
             mutate_annotations(pdf, rng)
             mutate_attachments(pdf, rng)
             mutate_images(pdf, rng)
             mutate_trailer(pdf, rng)
-            '''
+            
             if rng.random() < 0.3: # Add a random image thing...
                 dprint("Inserting a random image...")
                 insert_random_colorspace_image(pdf, rng=rng)
                 # not_reached = False
             pdf.remove_unreferenced_resources()
             # Do the stuff...
-            # overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
+            overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
             out = io.BytesIO()
             pdf.save(out, static_id=False, deterministic_id=False)
             # not_reached = False
@@ -2017,11 +2017,10 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                 ok = mutate_dict_inplace(target, rng, pdf=pdf)
                 if ok:
                     break
-        # else:
-        #     dprint("FUCK!")
-        #     dprint("Invalid target for inplace mutation: "+str(target))
-        #     exit(1)
-        #     raise RuntimeError("unsupported target for inplace mutation")
+        else:
+            dprint("FUCK!")
+            dprint("Invalid target for inplace mutation: "+str(target))
+            exit(1)
     # Structural / page operations
     else:
         # shuffle pages occasionally
