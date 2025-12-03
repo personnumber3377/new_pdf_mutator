@@ -5,7 +5,7 @@
 # bug1245391_reduced_minified.pdf
 
 
-python3 newmutator.py --run-until listbox_actions.pdf output.pdf
+python3 newmutator.py --run-until devicen.pdf output.pdf
 
 
 
