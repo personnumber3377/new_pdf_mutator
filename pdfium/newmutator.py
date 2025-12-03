@@ -261,9 +261,11 @@ def insert_random_colorspace_image(pdf, rng=None):
         "DeviceN",
     ])
 
+    dprint("We picked this random colorspace stuff: "+str(cs_type))
+
     # Very small demo image 8×8
-    width = 8
-    height = 8
+    width = rng.randrange(1,10) # 8
+    height = rng.randrange(1,10) # 8
 
     # Generate raw image bytes (just random noise)
     raw_bytes = bytes(rng.getrandbits(8) for _ in range(width * height * 4))
@@ -324,7 +326,7 @@ def insert_random_colorspace_image(pdf, rng=None):
         tint_func.Range = [0, 1, 0, 1, 0, 1, 0, 1]
         colorspace = Array([
             Name.Separation,
-            Name("SpotGreen"),
+            Name("/SpotGreen"),
             Name.DeviceCMYK,
             tint_func,
         ])
@@ -360,11 +362,11 @@ def insert_random_colorspace_image(pdf, rng=None):
 
     # Attach to page Resources
     res = page.Resources
-    if "XObject" not in res:
+    if "/XObject" not in res:
         # res["XObject"] = Dictionary()
         res[Name.XObject] = Dictionary()
 
-    name = Name(f"Im{len(res.XObject)}")
+    name = Name(f"/Im{len(res.XObject)}")
     res.XObject[name] = im_obj
 
     # Draw the image
@@ -372,8 +374,9 @@ def insert_random_colorspace_image(pdf, rng=None):
     if page.Contents is None:
         page.Contents = pdf.make_stream(page_content)
     else:
-        existing = page.Contents.read_bytes()
-        page.Contents = pdf.make_stream(existing + b"\n" + page_content)
+        # existing = page.Contents.read_bytes()
+        # page.Contents = pdf.make_stream(existing + b"\n" + page_content)
+        page.Contents = pdf.make_stream(page_content)
 
 def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=None):
     """
@@ -439,10 +442,14 @@ def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=N
         if "/Contents" in page: # Check the thing...
             dprint("Yes the contents are here: "+str(page["/Contents"]))
         conts = page["/Contents"] # Do the stuff...
-
+        dprint("conts: "+str(conts))
+        if conts == None:
+            return # No content, so return
         # Now select random stream...
-
-        rand_stream = rng.choice(conts)
+        if isinstance(conts, Stream):
+            rand_stream = conts # It already is a stream
+        else:
+            rand_stream = rng.choice(conts)
 
         dprint("Here is the rand_stream: "+str(rand_stream))
         
@@ -881,24 +888,13 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             mutate_attachments(pdf, rng)
             mutate_images(pdf, rng)
             mutate_trailer(pdf, rng)
-
             if rng.random() < 0.3: # Add a random image thing...
                 dprint("Inserting a random image...")
                 insert_random_colorspace_image(pdf, rng=rng)
-                not_reached = False
-
-            # not_reached = False
-
-            # TODO Add here a way to add an image with the random colorspace stuff...
-
-
-
+                # not_reached = False
             pdf.remove_unreferenced_resources()
-
             # Do the stuff...
-
             overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
-
             out = io.BytesIO()
             pdf.save(out, static_id=False, deterministic_id=False)
             # not_reached = False
