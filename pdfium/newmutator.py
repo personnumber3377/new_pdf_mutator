@@ -1432,6 +1432,7 @@ def mutate_array(arr: Array, rng, pdf):
 
     if action == "mutate_elem":
         idx = rng.randrange(len(arr))
+        arr = arr.as_list()
         elem = arr[idx]
 
         if isinstance(elem, int):
@@ -1458,9 +1459,15 @@ def mutate_array(arr: Array, rng, pdf):
     elif action == "duplicate":
         src = rng.randrange(len(arr))
         tgt = rng.randrange(len(arr))
+        dprint("Passed this object here: "+str(arr))
+        dprint("arr")
+        global not_reached
+        not_reached = False
+        arr = arr.as_list() # As a list...
         arr[tgt] = arr[src]
 
     elif action == "remove" and len(arr) > 1:
+        dprint("arr: "+str(arr))
         del arr[rng.randrange(len(arr))]
 
     elif action == "append":
@@ -1478,11 +1485,19 @@ def mutate_array(arr: Array, rng, pdf):
     if rng.random() < 0.10:
         grow = rng.randrange(200, 20000)
         for _ in range(grow):
-            arr.append(copy.deepcopy(rng.choice(arr)))
+            arr.append(rng.choice(arr))
+
+            # arr.append(copy.deepcopy(rng.choice(arr)))
 
     # Shrink
+    # if rng.random() < 0.10 and len(arr) > 1:
+    #     del arr[0:len(arr)//2]
+
     if rng.random() < 0.10 and len(arr) > 1:
-        del arr[0:len(arr)//2]
+        dprint("Array: "+str(arr))
+        dprint("Array thing: "+str(arr.__dir__()))
+        arr = arr.as_list()
+        arr.pop(rng.randrange(len(arr)))
 
     return arr
 
@@ -1531,8 +1546,8 @@ def mutate_inferred(obj, key, val, rng, depth, pdf):
 
         # ---- Names ----
         if isinstance(val, Name):
-            global not_reached
-            not_reached = False
+            # global not_reached
+            # not_reached = False
             obj[key] = mutate_name(val, rng, pdf)
             return
 
@@ -1755,9 +1770,6 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random):
             ops = tokenize_content_stream(data)
             if not ops:
                 return False
-
-            global not_reached
-            # not_reached = False # IS reached...
             dprint("Mutating drawing stream...")
             ops = mutate_operator_list(ops, rng)
             new_data = serialize_ops(ops)
