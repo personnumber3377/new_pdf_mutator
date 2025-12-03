@@ -33,6 +33,7 @@ import traceback
 import generic_mutator_bytes
 import copy
 import datetime
+import decimal
 
 sys.setrecursionlimit(20000)
 
@@ -43,7 +44,7 @@ def dlog(string):
 
 try:
     import pikepdf
-    from pikepdf import Name, Dictionary, Array, Stream
+    from pikepdf import Name, Dictionary, Array, Stream, Object
 except Exception as e:
     print("ERROR: pikepdf required. Install: pip3 install pikepdf", file=sys.stderr)
     raise
@@ -119,7 +120,22 @@ MAX_INTEGER_RANGE = 2**32 - 1
 BANNED_KEYS = set(["/Length", "/Kids"])  # Do not modify these on stream dicts
 MAX_RECURSION = 8
 
+# MAX_32_INT = 2**31 - 1
+
+MAX_32_INT = 1000000
+
+def clamp_int_32(integer: int) -> int: # Clamps integer to the thing...
+    dprint("fefeeeeeeeeeeeeeee")
+    if integer <= -MAX_32_INT:
+        integer = -MAX_32_INT
+    elif integer >= MAX_32_INT:
+        integer = MAX_32_INT
+    dprint("returning this integer: "+str(integer))
+    return integer
+
 MAX_SCALE_FACTOR = 10000000000.0 # The max float scale factor
+
+MAX_INTEGER_THING = 10000000
 
 DEFAULT_PDF_DIR = Path(os.environ.get("MUTATOR_PDF_DIR", "./pdf_seed_corpus/"))
 DEFAULT_PKL_PATH = Path(os.environ.get("MUTATOR_PKL_PATH", "./resources.pkl"))
@@ -1424,21 +1440,53 @@ def mutate_stream(val, rng):
 
 def mutate_array(arr: Array, rng, pdf):
     # empty → append new int
+    global not_reached
     if len(arr) == 0:
         arr.append(rng.randint(-100, 100))
         return arr
 
-    action = rng.choice(["mutate_elem", "duplicate", "remove", "append"])
+    # action = rng.choice(["mutate_elem", "duplicate", "remove", "append"])
+
+    action = rng.choice(["mutate_elem", "remove", "append"])
 
     if action == "mutate_elem":
         assert isinstance(arr, Array) # Actually should be an array...
-        arr = arr.as_list()
+        # arr = arr.as_list()
         idx = rng.randrange(len(arr))
         elem = arr[idx]
 
         if isinstance(elem, int):
-            arr[idx] = elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR))
+            dprint("Here is the \"array\" object: "+str(arr))
+            dprint("dir: "+str(arr.__dir__()))
+            # arr.remove(elem) # Delete the element...
 
+            dprint("Type of the element: "+str(type(arr[0])))
+
+            #arr = arr.as_list()
+            #arr = Array(arr) # Make a list thing...
+            # if isinstance(arr, Object):
+            # Do the stuff...
+            #arr = arr.wrap_in_array()
+            arr = Array(arr)
+            dprint("Type of array after conversion: "+str(type(arr)))
+            assert isinstance(arr, Array) # Should be array...
+            # arr.pop(idx)
+            dprint("paskaaaaa")
+            # arr.insert(idx, decimal.Decimal(elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR)))) #  = elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR))
+            # arr.insert(idx, Object(decimal.Decimal(elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR)))))
+            # arr.insert(idx, Object(elem * rng.randrange(-int(MAX_SCALE_FACTOR), int(MAX_SCALE_FACTOR))))
+            not_reached = False
+            # MAX_INTEGER_THING
+            # scaled = int(elem * rng.randrange(-int(MAX_INTEGER_THING), int(MAX_INTEGER_THING)))
+            scaled = int(rng.randrange(-int(MAX_INTEGER_THING), int(MAX_INTEGER_THING)))
+            dprint("after scale....")
+            dec_shit = clamp_int_32(scaled)
+            # dec_shit = decimal.Decimal(clamp_int_32(scaled))
+            dprint("Trying to insert the thing...")
+            # arr.insert(idx, dec_shit)
+            arr.extend([dec_shit])
+            dprint("Put the thing into the thing...")
+            return arr
         elif isinstance(elem, float):
             arr[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
 
@@ -1462,9 +1510,11 @@ def mutate_array(arr: Array, rng, pdf):
         tgt = rng.randrange(len(arr))
         dprint("Passed this object here: "+str(arr))
         dprint("arr")
-        global not_reached
-        not_reached = False
-        arr = arr.as_list() # As a list...
+        # global not_reached
+        # not_reached = False
+        # arr = arr.as_list() # As a list...
+        # arr.remove()
+        # arr.insert()
         arr[tgt] = arr[src]
 
     elif action == "remove" and len(arr) > 1:
@@ -1494,11 +1544,13 @@ def mutate_array(arr: Array, rng, pdf):
     # if rng.random() < 0.10 and len(arr) > 1:
     #     del arr[0:len(arr)//2]
 
+    '''
     if rng.random() < 0.10 and len(arr) > 1:
         dprint("Array: "+str(arr))
         dprint("Array thing: "+str(arr.__dir__()))
         arr = arr.as_list()
         arr.pop(rng.randrange(len(arr)))
+    '''
 
     return arr
 
@@ -1555,6 +1607,7 @@ def mutate_inferred(obj, key, val, rng, depth, pdf):
         # ---- Arrays ----
         if isinstance(val, Array):
             obj[key] = mutate_array(val, rng, pdf)
+            dprint("After thing: "+str(obj[key]))
             return
 
         # ---- Dictionaries ----
@@ -1618,6 +1671,7 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
     try:
         # If expected type is known & matches → use direct handler
         if expected_type in EXPECTED_TYPE_HANDLERS:
+            dprint("Here we are looking up the thing: "+str(expected_type))
             EXPECTED_TYPE_HANDLERS[expected_type](obj, key, val, rng, depth, pdf)
         else:
             # Otherwise: use inferred type-based mutation
@@ -2056,7 +2110,9 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                     dprint("Dictionary mutation failed!!!")
                     exit(1)
         elif isinstance(target, pikepdf.Array): # Mutate array
+            dprint("Before target: "+str(target))
             mutate_array(target, rng, pdf=pdf) # Mutate the thing...
+            dprint("After mutate_array target: "+str(target))
             # if ok:
             #     break
         else:
@@ -2362,6 +2418,7 @@ if __name__ == "__main__":
         except Exception as e:
             print("Mutation error: " + str(e))
             traceback.print_exc()
+        dprint("exiting...")
         sys.exit(0)
 
     print("No action specified. This script is the AFL++ custom mutator module.")
