@@ -869,8 +869,8 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
     # not_reached = False
 
     try:
-        not_reached = False
-        dprint("Paskaaaaaaa")
+        # not_reached = False
+        # dprint("Paskaaaaaaa")
         with Pdf.open(bio, allow_overwriting_input=False) as pdf:
             mutate_docinfo(pdf, rng)
             mutate_metadata(pdf, rng)
@@ -882,7 +882,9 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             mutate_trailer(pdf, rng)
 
             if rng.random() < 0.3: # Add a random image thing...
+                dprint("Inserting a random image...")
                 insert_random_colorspace_image(pdf, rng=rng)
+                not_reached = False
 
             # not_reached = False
 
@@ -901,6 +903,10 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             # not_reached = False
             return bytes(out.getvalue())
     except Exception as exception:
+        if DEBUG: # Print fatal exceptions in debugging.
+            dprint("We got this bullshit ass exception here: "+str(exception))
+            dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
+            exit(1)
         return data
         # dprint("Poopoooo...")
         # dprint("Exception here: "+str(exception))
