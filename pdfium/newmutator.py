@@ -1492,61 +1492,77 @@ def mutate_array(arr: Array, rng, pdf):
 # Mirrors your explicit logic exactly
 # ————————————————————————————————
 
+BANNED_THINGS = [Array, Name]
+
 def mutate_inferred(obj, key, val, rng, depth, pdf):
-    """Fallback path matching your original giant else-block semantics."""
-    dprint("Called mutate_inferred with obj == "+str(obj))
-    dprint("typecode: "+str(typecode))
-    # 95% chance: respect inferred type
+    """Fallback mutation when we don't have an expected type in DICT_TYPE_MAP."""
+
+    dprint("Called mutate_inferred with obj == " + str(obj))
+    dprint("Here is the value: " + repr(val))
+
+    # 95% chance: mutate according to inferred type
     if rng.random() < 0.95:
-        typecode = getattr(val, "typecode", None)
 
-        # int
-        if isinstance(val, int) or typecode == "int":
-            obj[key] = mutate_int(int(val), rng)
-            return
+        # ---- Integers / booleans ----
+        # pikepdf often wraps numbers, but int() / float() will work if they are numeric.
+        try:
+            if isinstance(val, int):
+                obj[key] = mutate_int(int(val), rng)
+                return
+        except Exception:
+            pass
 
-        # float
-        if isinstance(val, float) or typecode == "real":
-            obj[key] = mutate_number(float(val), rng)
-            return
+        try:
+            if isinstance(val, bool):
+                obj[key] = mutate_bool(val)
+                return
+        except Exception:
+            pass
 
-        # string-like
-        if isinstance(val, str) or typecode in ("string", "name", "hexstring", "unicode"):
-            dprint("Called mutate_string with string == "+str(val))
+        # ---- Floats / reals ----
+        try:
+            # we check float conversion in a guarded way
+            if not isinstance(val, int):  # avoid treating ints as float here
+                f = float(val)
+                obj[key] = mutate_number(f, rng)
+                return
+        except Exception:
+            pass
 
-            obj[key] = mutate_string(str(val), rng)
-            dprint("New value is "+str(obj[key]))
-            return
-
-        # names
-        if isinstance(val, Name) or typecode == "name":
+        # ---- Names ----
+        if isinstance(val, Name):
             obj[key] = mutate_name(val, rng, pdf)
             return
 
-        # arrays
-        if isinstance(val, Array) or typecode == "array":
+        # ---- Arrays ----
+        if isinstance(val, Array):
             obj[key] = mutate_array(val, rng, pdf)
             return
 
-        # dicts
-        if isinstance(val, Dictionary) or typecode == "dict":
+        # ---- Dictionaries ----
+        if isinstance(val, Dictionary):
             mutate_dict(val, rng, depth, pdf)
             obj[key] = val
             return
 
-        # streams
-        if isinstance(val, Stream) or typecode == "stream":
+        # ---- Streams ----
+        if isinstance(val, Stream):
             obj[key] = mutate_stream(val, rng)
             return
 
-        dprint("Uknown type: "+str(obj))
-        exit(1)
+        # ---- "Everything else" → treat as string-like ----
+        # Includes things like pikepdf.Object that represent strings or DA-like content.
+        try:
+            s = str(val)
+        except Exception:
+            s = repr(val)
 
-        # fallback: treat as string
-        obj[key] = mutate_string(str(val), rng)
+        dprint("Treating value as string for mutation: " + s)
+        obj[key] = mutate_string(s, rng)
+        dprint("New value is " + str(obj[key]))
         return
 
-    # 5%: insert wrong-type garbage
+    # 5%: insert wrong-type garbage on purpose
     obj[key] = rng.randint(-5000, 5000)
 
 
@@ -1589,9 +1605,13 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
             # Otherwise: use inferred type-based mutation
             mutate_inferred(obj, key, val, rng, depth, pdf)
 
-    except Exception as e:
+    except Exception as exception:
+
+        dprint("Exception during mutation of dictionary: "+str(exception))
+        dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
+        exit(1)
         # You can choose to swallow or rethrow
-        raise e
+        # raise e
 
     return True
 
@@ -2017,6 +2037,13 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                 ok = mutate_dict_inplace(target, rng, pdf=pdf)
                 if ok:
                     break
+                else:
+                    dprint("Dictionary mutation failed!!!")
+                    exit(1)
+        elif isinstance(target, pikepdf.Array): # Mutate array
+            mutate_array(target, rng, pdf=pdf) # Mutate the thing...
+            # if ok:
+            #     break
         else:
             dprint("FUCK!")
             dprint("Invalid target for inplace mutation: "+str(target))
