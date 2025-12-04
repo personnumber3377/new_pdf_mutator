@@ -151,7 +151,7 @@ _call_counter = 0
 DICT_TYPE_MAP = {
     "LW": "number", "LC": "int", "LJ": "int", "ML": "number",
     "D": "array", "RI": "name", "OP": "bool", "op": "bool",
-    "OPM": "int", "Font": "array", "BG": "any", "BG2": "any",
+    "OPM": "int", "BG": "any", "BG2": "any", # This also had Font in it as an array, but that is not accurate.
     "UCR": "any", "UCR2": "any", "TR": "any", "TR2": "any",
     "FL": "number", "SM": "number", "SA": "bool",
     "BM": "name", "SMask": "dict", "CA": "number", "ca": "number",
@@ -1472,6 +1472,20 @@ def mutate_array(arr: Array, rng, pdf):
                 names = collect_named_objects(pdf)
                 if names:
                     arr[idx] = rng.choice(names)
+        elif isinstance(elem, Dictionary):
+            # not_reached = False
+            dprint("Mutating this here: "+str(elem))
+            # mutate_dict(elem) # Mutate the dictionary...
+            mutate_dict(elem, rng, 0, pdf) # ;)
+            dprint("After mutation: "+str(elem))
+        elif isinstance(elem, pikepdf.Stream): # Mutate stream...
+            mutate_stream_inplace(elem, rng)
+        # Add support for strings here...
+        
+        else:
+            dprint("Unsupported target: "+str(elem))
+            exit(1)
+
 
     elif action == "duplicate":
         src = rng.randrange(len(arr))
@@ -2085,9 +2099,9 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
                 ok = mutate_dict_inplace(target, rng, pdf=pdf)
                 if ok:
                     break
-                else:
-                    dprint("Dictionary mutation failed!!!")
-                    exit(1)
+                # else:
+                #     dprint("Dictionary mutation failed!!!")
+                #     exit(1)
         elif isinstance(target, pikepdf.Array): # Mutate array
             dprint("Before target: "+str(target))
             new_array = mutate_array(target, rng, pdf=pdf) # Mutate the thing...
