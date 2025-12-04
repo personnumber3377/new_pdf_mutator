@@ -1480,11 +1480,13 @@ def mutate_array(arr: Array, rng, pdf):
             dprint("After mutation: "+str(elem))
         elif isinstance(elem, pikepdf.Stream): # Mutate stream...
             mutate_stream_inplace(elem, rng)
-        # Add support for strings here...
-        
+        elif isinstance(elem, str): # Is a string???
+            mutate_string(elem)
+            not_reached = False
         else:
             dprint("Unsupported target: "+str(elem))
             exit(1)
+        # Add support for strings here...
 
 
     elif action == "duplicate":
