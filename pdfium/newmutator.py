@@ -1634,6 +1634,8 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
         # If expected type is known & matches → use direct handler
         if expected_type in EXPECTED_TYPE_HANDLERS:
             dprint("Here we are looking up the thing: "+str(expected_type))
+            dprint("We are doing it with this key here: "+str(key))
+            dprint("Here is the actual thing: "+str(val))
             EXPECTED_TYPE_HANDLERS[expected_type](obj, key, val, rng, depth, pdf)
             dprint("Value after the thing: "+str(val))
         else:
@@ -2278,7 +2280,7 @@ def fuzz(buf: bytearray, add_buf, max_size: int) -> bytearray:
                 assert False
                 exit(1)
         '''
-        
+
         # raise e
         # return 
         return generic_mutator_bytes.mutate_generic(bytes(buf))
