@@ -1483,8 +1483,17 @@ def mutate_array(arr: Array, rng, pdf):
         elif isinstance(elem, str): # Is a string???
             mutate_string(elem)
             not_reached = False
+        elif isinstance(elem, float) or isinstance(elem, decimal.Decimal):
+            # Float???
+            elem = mutate_number(elem, rng)
+        elif isinstance(elem, Array): # Recurse here...
+            elem = mutate_array(elem, rng, pdf)
+        elif isinstance(elem, Name): # Name
+            elem = mutate_name(elem, rng, pdf) # Just mutate that name shit...
         else:
             dprint("Unsupported target: "+str(elem))
+            dprint("Type: "+str(type(elem)))
+            dprint("repr: "+str(repr(elem)))
             exit(1)
         # Add support for strings here...
 
