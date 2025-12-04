@@ -768,8 +768,6 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
                 exit(1)
             da = acro_dict.get("/DA", b"/Helv 12 Tf 0 g")
             # Replace with valid drawing-like DA (see fix #3)
-            # global not_reached
-            # not_reached = False # Is reached...
             acro_dict["/DA"] = mutate_da_string(da, rng)
             pdf.generate_appearance_streams()
             dprint("Here is the final /DA stuff: "+str(acro_dict["/DA"]))
@@ -980,15 +978,10 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
 
     global not_reached
 
-    # not_reached = False
-
     rng = random.Random(seed)
     bio = io.BytesIO(data)
-    # not_reached = False
 
     try:
-        # not_reached = False
-        # dprint("Paskaaaaaaa")
         with Pdf.open(bio, allow_overwriting_input=False) as pdf:
             
             mutate_docinfo(pdf, rng)
@@ -1005,13 +998,11 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             if rng.random() < 0.3: # Add a random image thing...
                 dprint("Inserting a random image...")
                 insert_random_colorspace_image(pdf, rng=rng)
-                # not_reached = False
             pdf.remove_unreferenced_resources()
             # Do the stuff...
             overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
             out = io.BytesIO()
             pdf.save(out, static_id=False, deterministic_id=False)
-            # not_reached = False
             return bytes(out.getvalue())
     except Exception as exception:
         if DEBUG: # Print fatal exceptions in debugging.
@@ -1311,7 +1302,8 @@ def rng_from_buf(buf: bytes) -> random.Random:
     # print("seed: "+str(seed_thing))
     # rand_thing = random.randrange(1, 1000000000000)
     # dprint("We chose this random thing here: "+str(rand_thing))
-    rand_thing = 525584941424 # Hardcoded bullshit here...
+    # rand_thing = 525584941424 # Hardcoded bullshit here...
+    rand_thing = random.randrange(100000000)
     return random.Random(rand_thing) # random.Random(random.randrange(1,10000000)) # random.Random(len(buf)) # random.Random(seed_int) # random.Random(seed_thing) # random.Random(random.randrange(1000000)) # random.Random(seed_int)
 
 
@@ -1348,7 +1340,6 @@ def collect_named_objects(pdf) -> List[Name]:
 
 def mut_string(string: str, rng: random.Random) -> str:
     global not_reached
-    # not_reached = False
     if string == "": # Check for empty strings before trying to mutate the object...
         string = "samplestringhere....erereree"
     dprint("Called mut_string with this string here: "+str(string))
@@ -1459,7 +1450,10 @@ def mutate_array(arr: Array, rng, pdf):
         elem = arr[idx]
 
         if isinstance(elem, int):
-            arr[idx] = random.randrange(1000) # Just put an integer there...
+            dprint("Ok, so now we are doing the thing here... Here is the object: "+str(arr))
+            arr[idx] = clamp_int_32(random.randrange(-MAX_32_INT, MAX_32_INT)) # random.randrange(1000) # Just put an integer there...
+            dprint("After: "+str(arr))
+            # not_reached = False
             return arr
         elif isinstance(elem, float):
             arr[idx] = elem * (rng.random() - 0.5) * MAX_SCALE_FACTOR
@@ -1485,10 +1479,6 @@ def mutate_array(arr: Array, rng, pdf):
         dprint("Passed this object here: "+str(arr))
         dprint("arr")
         # global not_reached
-        # not_reached = False
-        # arr = arr.as_list() # As a list...
-        # arr.remove()
-        # arr.insert()
         arr[tgt] = arr[src]
 
     elif action == "remove" and len(arr) > 1:
@@ -1573,8 +1563,6 @@ def mutate_inferred(obj, key, val, rng, depth, pdf):
 
         # ---- Names ----
         if isinstance(val, Name):
-            # global not_reached
-            # not_reached = False
             obj[key] = mutate_name(val, rng, pdf)
             return
 
@@ -1647,6 +1635,7 @@ def mutate_dict_inplace(obj: Dictionary, rng: random.Random, depth: int = 0, pdf
         if expected_type in EXPECTED_TYPE_HANDLERS:
             dprint("Here we are looking up the thing: "+str(expected_type))
             EXPECTED_TYPE_HANDLERS[expected_type](obj, key, val, rng, depth, pdf)
+            dprint("Value after the thing: "+str(val))
         else:
             # Otherwise: use inferred type-based mutation
             mutate_inferred(obj, key, val, rng, depth, pdf)
@@ -1884,7 +1873,7 @@ def replace_object_with_sample(pdf: pikepdf.Pdf, target_obj, sample_py, rng: ran
     constructed = construct_pike_replacement(sample_py, pdf)
 
     dprint("constructed: "+str(constructed))
-
+    dprint("target object: "+str(target_obj))
     # Helper to clear dictionary keys safely
     def clear_dict(d):
         for k in list(d.keys()):
@@ -1966,6 +1955,10 @@ def replace_object_with_sample(pdf: pikepdf.Pdf, target_obj, sample_py, rng: ran
                     dprint("Exception!!!")
                     pass
             return True
+        elif isinstance(constructed, pikepdf.Array):
+            # Do the stuff here...
+            target_obj = constructed
+            return True
         else:
             raise RuntimeError("Unsupported constructed type for stream replacement: %r" % type(constructed))
 
@@ -2008,10 +2001,20 @@ def replace_object_with_sample(pdf: pikepdf.Pdf, target_obj, sample_py, rng: ran
                     dprint("Exception!!!")
                     pass
             return True
+        elif isinstance(constructed, pikepdf.Array):
+            # Array shit...
+            target_obj = constructed # Just assign that shit there...
         else:
             raise RuntimeError("Unsupported constructed type for dict replacement: %r" % type(constructed))
 
+
+    elif isinstance(target_obj, pikepdf.Array): # Array type...
+
+        target_obj = constructed # Just assign that shit???
+        return True
     else:
+        dprint("Here is the object: "+str(target_obj))
+        dprint("The type thing: "+str(type(target_obj)))
         raise RuntimeError("Unsupported target_obj type: %r" % type(target_obj))
 
 
@@ -2260,15 +2263,22 @@ def fuzz(buf: bytearray, add_buf, max_size: int) -> bytearray:
         if len(out) > max_size:
             out = out[:max_size]
         return out
-    except Exception as e:
+    except Exception as exception:
 
         # print("Encountered this bullshit exception...")
         # print(e)
+        
         '''
-        if "unable to find" not in str(e) and "root" not in str(e):
-            print(str(e))
-            assert False
+        if DEBUG:
+
+            if "unable to find" not in str(exception) and "root" not in str(exception):
+                # print(str(e))
+                dprint(str(exception))
+                dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
+                assert False
+                exit(1)
         '''
+        
         # raise e
         # return 
         return generic_mutator_bytes.mutate_generic(bytes(buf))
