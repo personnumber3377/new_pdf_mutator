@@ -1,0 +1,4 @@
+"--stream-data=uncompress",
+        "--decode-level=all",
+        "--object-streams=disable",
+

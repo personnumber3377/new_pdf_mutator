@@ -5,7 +5,7 @@
 # bug1245391_reduced_minified.pdf
 
 
-python3 newmutator.py --run-until TAMReview.pdf output.pdf
+python3 newmutator.py --run-until TAMReview_decomp.pdf output.pdf
 
 
 
