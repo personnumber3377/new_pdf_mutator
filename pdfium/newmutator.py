@@ -57,7 +57,9 @@ except Exception as e:
 
 # DEBUG = False
 
-DEBUG = True
+# DEBUG = True
+
+DEBUG = False
 
 def dprint(msg: str) -> None:
     if DEBUG:
@@ -2199,7 +2201,7 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random, pdf):
         except Exception as exception:
 
             # if not_reached == False:
-            if True:
+            if DEBUG:
                 dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
                 dprint(str(exception))
                 dprint("FUCK!"*1000)
