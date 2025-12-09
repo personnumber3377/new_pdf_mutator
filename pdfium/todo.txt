@@ -1,0 +1,21 @@
+[DEBUG] We got this bullshit ass exception here: stream <_io.BytesIO object at 0x7765749c49f0> (Name/Number tree node (object 4)): unable to find a valid items node
+Traceback (most recent call last):
+  File "/home/oof/new_pdf_mutator/pdfium/newmutator.py", line 1001, in mutate_pdf_in_memory
+    mutate_attachments(pdf, rng)
+  File "/home/oof/new_pdf_mutator/pdfium/newmutator.py", line 898, in mutate_attachments
+    attachments[fs.filename] = fs
+    ~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/_methods.py", line 746, in __setitem__
+    return self._add_replace_filespec(k, v)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pikepdf._core.PdfError: stream <_io.BytesIO object at 0x7765749c49f0> (Name/Number tree node (object 4)): unable to find a valid items node
+[DEBUG] None
+
+
+- Also instead of returning, try creating the Resources object here:
+
+    # Attach to page Resources
+    if "/Resources" not in page:
+        # TODO: Create the Resources dictionary instead of returning???
+        return # Do the thing...
+

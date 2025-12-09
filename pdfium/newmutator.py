@@ -381,6 +381,9 @@ def insert_random_colorspace_image(pdf, rng=None):
     )
 
     # Attach to page Resources
+    if "/Resources" not in page:
+        # TODO: Create the Resources dictionary instead of returning???
+        return # Do the thing...
     res = page.Resources
     if "/XObject" not in res:
         # res["XObject"] = Dictionary()
@@ -461,6 +464,9 @@ def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=N
         dprint("page: "+str(page))
         if "/Contents" in page: # Check the thing...
             dprint("Yes the contents are here: "+str(page["/Contents"]))
+
+        if "/Contents" not in page:
+            return # Stuff...
         conts = page["/Contents"] # Do the stuff...
         dprint("conts: "+str(conts))
         if conts == None:
@@ -2685,6 +2691,23 @@ def custom_mutator(buf: bytearray, add_buf, max_size: int, callback=None) -> byt
         # On error, return the original buffer (safe fallback)
         return buf
 
+def get_candidate_pdf(directory, max_size_kb=10):
+    """
+    Return a random PDF file path smaller than max_size_kb.
+    Raises ValueError if none found.
+    """
+    candidates = []
+    for fn in os.listdir(directory):
+        if not fn.lower().endswith(".pdf"):
+            continue
+        full = os.path.join(directory, fn)
+        if os.path.isfile(full) and os.path.getsize(full) <= max_size_kb * 1024:
+            candidates.append(full)
+
+    if not candidates:
+        raise ValueError("No PDF files <= {} KB found".format(max_size_kb))
+    return candidates
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description="Mutator maintenance / testing")
@@ -2694,6 +2717,7 @@ if __name__ == "__main__":
     ap.add_argument("--mutate", nargs=2, metavar=("IN", "OUT"), help="Mutate IN -> OUT (single pass)")
     ap.add_argument("--mutate-iter", nargs=3, metavar=("IN", "OUT", "N"), help="Mutate IN repeatedly N times")
     ap.add_argument("--run-until", nargs=2, metavar=("IN", "OUT"), help="Run until the specified point in the code...") # Do the stuff..
+    ap.add_argument("--stress-test", nargs=1, metavar=("COUNT"), help="Stress test...")
     args = ap.parse_args()
 
     if args.build_db:
@@ -2737,5 +2761,15 @@ if __name__ == "__main__":
             traceback.print_exc()
         dprint("exiting...")
         sys.exit(0)
+
+    if args.stress_test:
+        n = args.stress_test # Get count...
+        n = int(n[0]) # Get the actual integer...
+        init(0)
+        cands = get_candidate_pdf("./testset/")
+        for _ in range(n):
+            infile = random.choice(cands)
+            outfile = "output.pdf"
+            cli_mutate_file(infile, outfile, times=10) # Just mutate some times...
 
     print("No action specified. This script is the AFL++ custom mutator module.")
