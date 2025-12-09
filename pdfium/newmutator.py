@@ -1989,25 +1989,13 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random, pdf):
     if is_drawing_stream(stream):
         try:
             dprint("Saving original data...")
-            fh = open("original_stream.bin", "wb")
-            fh.write(data)
-            fh.close()
             ops = tokenize_content_stream(data)
             if not ops:
                 return False
             dprint("Mutating drawing stream...")
-            fh = open("ops_before.txt", "w")
-            fh.write(str(ops))
-            fh.close()
             ops = mutate_operator_list(ops, rng, pdf)
-            fh = open("ops_after.txt", "w")
-            fh.write(str(ops))
-            fh.close()
             new_data = serialize_ops(ops)
             dprint("New data: "+str(new_data))
-            fh = open("new_stream.bin", "wb")
-            fh.write(new_data)
-            fh.close()
             stream.write(new_data)
             return True
 
