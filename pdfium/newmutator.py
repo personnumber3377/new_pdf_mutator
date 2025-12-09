@@ -1744,6 +1744,9 @@ def mutate_operator_list(ops, rng, pdf):
     if not ops:
         return ops
 
+
+    # global not_reached
+    # not_reached = False
     # names = collect_named_objects(pdf)
 
     choice = rng.randrange(12)   # increased number of mutation types
@@ -1806,8 +1809,7 @@ def mutate_operator_list(ops, rng, pdf):
 
         elif new_op == "Do":
             # operands = [f"/XObj{rng.randint(0,20)}"]
-            global not_reached
-            not_reached = False
+
             names = collect_named_objects(pdf)
             operands = [random.choice(names)] # Add a known name to the thing...
 
@@ -1904,10 +1906,22 @@ def mutate_operator_list(ops, rng, pdf):
     # ---------------------------------------------------------------
     if choice == 9:
         for operands, op in ops:
+        #for i in range(len(ops)):
+            # operands, op = ops[i]
             if op == "Do":
+                global not_reached
+                not_reached = False
                 # operands[0] = "/" + "XObj" + str(rng.randint(0,200))
                 names = collect_named_objects(pdf)
-                operands[0] = rng.choice(names) # Collect random...
+                new_name = rng.choice(names)
+                new_name = str(new_name)
+                # dprint("old name: "+str(operands[0]))
+                # dprint("New name: "+str(new_name))
+                # ops[i][0] = new_name # copy.deepcopy(new_name) # Collect random...
+                # ops[i] = tuple((x for x in [[new_name] + list(ops[i][1:])]))
+                operands[0] = new_name
+                # dprint(ops[i])
+        # dprint("Returning... ")
         return ops
 
 
@@ -1974,17 +1988,36 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random, pdf):
     # Detect & parse content stream
     if is_drawing_stream(stream):
         try:
+            dprint("Saving original data...")
+            fh = open("original_stream.bin", "wb")
+            fh.write(data)
+            fh.close()
             ops = tokenize_content_stream(data)
             if not ops:
                 return False
             dprint("Mutating drawing stream...")
+            fh = open("ops_before.txt", "w")
+            fh.write(str(ops))
+            fh.close()
             ops = mutate_operator_list(ops, rng, pdf)
+            fh = open("ops_after.txt", "w")
+            fh.write(str(ops))
+            fh.close()
             new_data = serialize_ops(ops)
             dprint("New data: "+str(new_data))
+            fh = open("new_stream.bin", "wb")
+            fh.write(new_data)
+            fh.close()
             stream.write(new_data)
             return True
 
-        except Exception as e:
+        except Exception as exception:
+
+            if not_reached == False:
+                dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
+                dprint(str(exception))
+                dprint("FUCK!"*1000)
+                exit(1)
             # fallback: raw mutation
             pass
 
