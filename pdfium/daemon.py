@@ -46,6 +46,8 @@ def reserve_slot():
 
     # raise RuntimeError("No free mut slot found (all taken)")
 
+def deinit():
+    return
 
 def init(seed: int):
     if slot_input is not None:
@@ -72,6 +74,8 @@ def wait_for_change(path: Path, previous_hash: str):
             #     return data, h
         time.sleep(0.001)  # avoid burning CPU
 
+def fuzz(buf, add_buf, max_size):
+    return custom_mutator(buf, add_buf, max_size)
 
 def custom_mutator(buf: bytearray, _addbuf, max_size: int, callback=None) -> bytearray:
     global last_written_hash
