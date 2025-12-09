@@ -19,3 +19,72 @@ pikepdf._core.PdfError: stream <_io.BytesIO object at 0x7765749c49f0> (Name/Numb
         # TODO: Create the Resources dictionary instead of returning???
         return # Do the thing...
 
+
+
+
+
+
+
+
+
+
+
+[DEBUG] Succesfully entered the stuff!!!
+[DEBUG] Here is the PIM: <pikepdf.PdfImage image mode=? size=3x4 at 0x7d34419dd520>
+[DEBUG] We got this bullshit ass exception here: Not sure how to handle PDF image of this type
+Traceback (most recent call last):
+  File "/home/oof/new_pdf_mutator/pdfium/newmutator.py", line 1050, in mutate_pdf_in_memory
+    mutate_images(pdf, rng)
+  File "/home/oof/new_pdf_mutator/pdfium/newmutator.py", line 986, in mutate_images
+    }.get(pim.mode, 1)
+          ^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/models/image.py", line 301, in mode
+    raise NotImplementedError(
+NotImplementedError: Not sure how to handle PDF image of this type
+[DEBUG] None
+
+
+
+
+
+
+
+
+
+
+
+
+[DEBUG] We got this bullshit ass exception here: ICC profile corrupt or not readable
+Traceback (most recent call last):
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/models/image.py", line 462, in icc
+    self._icc = ImageCmsProfile(iccbytesio)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/PIL/ImageCms.py", line 251, in __init__
+    self.profile = core.profile_frombytes(profile.read())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: cannot open profile from string
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/oof/new_pdf_mutator/pdfium/newmutator.py", line 1060, in mutate_pdf_in_memory
+    mutate_images(pdf, rng)
+  File "/home/oof/new_pdf_mutator/pdfium/newmutator.py", line 989, in mutate_images
+    dprint("Here is the PIM: "+str(pim))
+                               ^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/models/image.py", line 812, in __repr__
+    mode = self.mode
+           ^^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/models/image.py", line 295, in mode
+    m = self._approx_mode_from_icc()
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/models/image.py", line 268, in _approx_mode_from_icc
+    xcolor_space = self.icc.profile.xcolor_space
+                   ^^^^^^^^
+  File "/home/oof/venv/lib/python3.12/site-packages/pikepdf/models/image.py", line 466, in icc
+    raise UnsupportedImageTypeError(
+pikepdf.models.image.UnsupportedImageTypeError: ICC profile corrupt or not readable
+[DEBUG] None
+
+
+

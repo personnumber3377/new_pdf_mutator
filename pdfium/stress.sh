@@ -5,7 +5,7 @@
 # bug1245391_reduced_minified.pdf
 
 
-python3 newmutator.py --stress-test 100000
+python3 newmutator.py --stress-test 10
 
 
 

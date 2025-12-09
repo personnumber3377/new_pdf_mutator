@@ -150,6 +150,7 @@ _call_counter = 0
 # -----------------------------
 # Type map (for guided dict edits)
 # -----------------------------
+'''
 DICT_TYPE_MAP = {
     "LW": "number", "LC": "int", "LJ": "int", "ML": "number",
     "D": "array", "RI": "name", "OP": "bool", "op": "bool",
@@ -179,6 +180,9 @@ DICT_TYPE_MAP = {
     "Producer": "string", "Creator": "string", "Author": "string",
     "Title": "string", "Subject": "string", "Keywords": "string",
 }
+'''
+
+DICT_TYPE_MAP = {} # Just use an empty bullshit thing...
 
 import random
 from typing import Optional
@@ -384,18 +388,24 @@ def insert_random_colorspace_image(pdf, rng=None):
     if "/Resources" not in page:
         # TODO: Create the Resources dictionary instead of returning???
         return # Do the thing...
+    
     res = page.Resources
-    if "/XObject" not in res:
+    if not isinstance(res, pikepdf.Array) and not isinstance(res, pikepdf.Dictionary):
+        # Here maybe create the thing too????
+        return
+    if "/XObject" not in res or not isinstance(res["/XObject"], pikepdf.Dictionary):
         # res["XObject"] = Dictionary()
         res[Name.XObject] = Dictionary()
 
     name = Name(f"/Im{len(res.XObject)}")
+    
     res.XObject[name] = im_obj
 
     # Draw the image
     page_content = f"100 0 0 100 50 50 cm /{name} Do".encode("ascii")
-    if page.Contents is None:
-        page.Contents = pdf.make_stream(page_content)
+    if "/Contents" not in page:
+        # page.Contents = pdf.make_stream(page_content)
+        page["/Contents"] = pdf.make_stream(page_content)
     else:
         # existing = page.Contents.read_bytes()
         # page.Contents = pdf.make_stream(existing + b"\n" + page_content)
@@ -422,6 +432,10 @@ def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=N
         #
         # Create a Canvas matching page size — this DOES NOT overwrite anything.
         #
+
+        # ValueError: Page size must be between 3 and 14400 PDF units
+        width = max(3, min(width, 14400))
+        height = max(3, min(height, 14400))
         canvas = Canvas(page_size=(width, height))
 
         # High-level operations from your previous mutator
@@ -461,12 +475,15 @@ def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=N
 
         # Select random drawing operation stream to append stuff...
 
-        dprint("page: "+str(page))
+        # dprint("page: "+str(page))
         if "/Contents" in page: # Check the thing...
             dprint("Yes the contents are here: "+str(page["/Contents"]))
 
         if "/Contents" not in page:
             return # Stuff...
+        
+        # TODO: pikepdf._core.PdfError: stream <_io.BytesIO object at 0x7dabfff54b80> (offset 1862): getStreamData called on unfilterable stream
+
         conts = page["/Contents"] # Do the stuff...
         dprint("conts: "+str(conts))
         if conts == None:
@@ -475,6 +492,7 @@ def overlay_random_canvas(pdf: Pdf, *, max_operations=MAX_DRAW_OPERATIONS, rng=N
         if isinstance(conts, Stream):
             rand_stream = conts # It already is a stream
         else:
+            dprint("Here is the contents: "+str(conts))
             rand_stream = rng.choice(conts)
 
         dprint("Here is the rand_stream: "+str(rand_stream))
@@ -771,9 +789,10 @@ def mutate_acroform(pdf: Pdf, rng: random.Random) -> None:
         acro_dict = pdf.Root.get("/AcroForm", None)   # raw dictionary
 
         if isinstance(acro_dict, Dictionary):
-            if "/DA" not in acro_dict: # Check the stuff...
-                dprint("DA not found here: "+str(acro_dict))
-                exit(1)
+            # TODO: Add DA here...
+            # if "/DA" not in acro_dict: # Check the stuff...
+            #     dprint("DA not found here: "+str(acro_dict))
+            #     exit(1)
             da = acro_dict.get("/DA", b"/Helv 12 Tf 0 g")
             # Replace with valid drawing-like DA (see fix #3)
             acro_dict["/DA"] = mutate_da_string(da, rng)
@@ -853,12 +872,21 @@ def mutate_annotations(pdf: Pdf, rng: random.Random) -> None:
         if not annots:
             continue
         for annot in annots:
+            # Check for None objects... (these slip through for some odd reason...)
+            # TODO: Maybe this is a bug inside pikepdf itself???
+            if annot == None or not isinstance(annot, pikepdf.Dictionary):
+                continue
             # Mutate flags (bitfield)
             if hasattr(annot, "F"):
                 try:
                     annot.F = (int(annot.F) ^ rng.randrange(0, 0xFF)) & 0xFFFF
                 except Exception:
                     pass
+            
+            # Here singular elements can be fucked up even though we get the list...
+
+            if annot == None:
+                dprint("We have None annotation in this list here: "+str(annots))
 
             # Mutate Contents if it's a text annotation / widget
             if "/Contents" in annot:
@@ -873,9 +901,36 @@ def mutate_annotations(pdf: Pdf, rng: random.Random) -> None:
                     state_name = rand_choice(rng, list(normal.keys()))
                     annot["/AS"] = state_name
 
+# This here creates the attachment bullshit...
+
+def ensure_attachment_tree(pdf):
+    root = pdf.Root
+
+    if "/Names" not in root:
+        root["/Names"] = Dictionary()
+
+    names = root["/Names"]
+
+    if "/EmbeddedFiles" not in names:
+        # Create an empty name tree
+        names["/EmbeddedFiles"] = Dictionary({
+            "/Names": Array()
+        })
+
+    ef_tree = names["/EmbeddedFiles"]
+
+    # Fix common malformed cases
+    if "/Names" not in ef_tree:
+        ef_tree["/Names"] = Array()
+
+    # Now guaranteed valid
+    return ef_tree
 
 def mutate_attachments(pdf: Pdf, rng: random.Random) -> None:
     """Mutate embedded file specifications via Attachments mapping + AttachedFileSpec."""
+    
+    ensure_attachment_tree(pdf)
+
     attachments = pdf.attachments
 
     # Randomly delete some attachments
@@ -889,14 +944,23 @@ def mutate_attachments(pdf: Pdf, rng: random.Random) -> None:
     # Randomly add one attachment with some fuzz data
     if rng.random() < 0.7:
         data = rng.choice(HARD_CODED_STRINGS).encode("utf-8")
-        fs = AttachedFileSpec(
+        fh = open("./attachment.txt", "wb")
+        fh.write(data)
+        fh.close()
+        fs = AttachedFileSpec.from_filepath(
             pdf,
-            data,
-            description="fuzz-attachment",
-            relationship=Name.Data,
+            Path("./attachment.txt"),
+            # description="fuzz-attachment",
+            # relationship=Name.Data,
         )
-        fs.filename = f"fuzz-{rng.randrange(100000)}.txt"
-        attachments[fs.filename] = fs
+        # fs.filename = f"fuzz-{rng.randrange(100000)}.txt"
+        # attachments[fs.filename] = data # fs
+        # attachments["hardcoded.txt"] = b"abc"
+        attachments[f"fuzz-{rng.randrange(100000)}.txt"] = fs
+
+        # fs = AttachedFileSpec.from_filepath(pdf, Path('somewhere/spreadsheet.xlsx'))
+
+
 
     # Mutate metadata of existing attachments
     for name, fs in list(attachments.items()):
@@ -931,6 +995,9 @@ def mutate_images(pdf: Pdf, rng: random.Random) -> None:
 
             # Mutate Decode array
             if rng.random() < 0.4:
+                dprint("Here is the PIM: "+str(pim))
+                # TODO: We occasionally get this thing here: NotImplementedError: Not sure how to handle PDF image of this type
+                # TODO: #2 Here we also get occasionally corrupt icc message: ICC profile corrupt or not readable
                 comps = {
                     "RGB": 3,
                     "CMYK": 4,
@@ -990,6 +1057,7 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
     bio = io.BytesIO(data)
 
     try:
+        # TODO: pikepdf._core.PasswordError: stream <_io.BytesIO object at 0x7071381684f0>: invalid password
         with Pdf.open(bio, allow_overwriting_input=False) as pdf:
             
             mutate_docinfo(pdf, rng)
@@ -1006,7 +1074,10 @@ def mutate_pdf_in_memory(data: bytes, seed: int | None = None) -> bytes:
             if rng.random() < 0.3: # Add a random image thing...
                 dprint("Inserting a random image...")
                 insert_random_colorspace_image(pdf, rng=rng)
-            pdf.remove_unreferenced_resources()
+            # RuntimeError: stream objects cannot be cloned
+            
+            # pdf.remove_unreferenced_resources()
+            
             # Do the stuff...
             overlay_random_canvas(pdf, max_operations=MAX_DRAW_OPERATIONS, rng=rng)
             out = io.BytesIO()
@@ -1431,7 +1502,7 @@ def collect_xobject_names_from_same_page(pdf, stream_data):
         except:
             continue
 
-        if not res:
+        if not res or "/XObject" not in res:
             continue
 
         # XObject dictionary lives inside Resources
@@ -1667,8 +1738,8 @@ BANNED_THINGS = [Array, Name]
 def mutate_inferred(obj, key, val, rng, depth, pdf):
     """Fallback mutation when we don't have an expected type in DICT_TYPE_MAP."""
 
-    dprint("Called mutate_inferred with obj == " + str(obj))
-    dprint("Here is the value: " + repr(val))
+    # dprint("Called mutate_inferred with obj == " + str(obj))
+    # dprint("Here is the value: " + repr(val))
 
     # 95% chance: mutate according to inferred type
     if rng.random() < 0.95:
@@ -1994,6 +2065,8 @@ def mutate_operator_list(ops, rng, pdf, data):
                 operands[1] = str(rng.uniform(1,200))
             elif op in ["Tj"]:
                 # corrupt text
+                if len(operands) == 0:
+                    operands = [0]
                 operands[0] = "(" + "".join(chr(rng.randint(30,126))
                                              for _ in range(rng.randint(1,30))) + ")"
             elif op == "TJ":
@@ -2772,4 +2845,4 @@ if __name__ == "__main__":
             outfile = "output.pdf"
             cli_mutate_file(infile, outfile, times=10) # Just mutate some times...
 
-    print("No action specified. This script is the AFL++ custom mutator module.")
+    # print("No action specified. This script is the AFL++ custom mutator module.")
