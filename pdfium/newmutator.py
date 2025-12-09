@@ -1423,8 +1423,8 @@ def mutate_dict(val, rng, depth, pdf):
     return val
 
 
-def mutate_stream(val, rng):
-    mutate_stream_inplace(val, rng)
+def mutate_stream(val, rng, pdf):
+    mutate_stream_inplace(val, rng, pdf)
     return val
 
 
@@ -1479,7 +1479,7 @@ def mutate_array(arr: Array, rng, pdf):
             mutate_dict(elem, rng, 0, pdf) # ;)
             dprint("After mutation: "+str(elem))
         elif isinstance(elem, pikepdf.Stream): # Mutate stream...
-            mutate_stream_inplace(elem, rng)
+            mutate_stream_inplace(elem, rng, pdf)
         elif isinstance(elem, str): # Is a string???
             mutate_string(elem)
             not_reached = False
@@ -1605,7 +1605,7 @@ def mutate_inferred(obj, key, val, rng, depth, pdf):
 
         # ---- Streams ----
         if isinstance(val, Stream):
-            obj[key] = mutate_stream(val, rng)
+            obj[key] = mutate_stream(val, rng, pdf)
             return
 
         # ---- "Everything else" → treat as string-like ----
@@ -1636,7 +1636,7 @@ EXPECTED_TYPE_HANDLERS = {
     "bool":         lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_bool(val)),
     "string":       lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_string(val, rng)),
     "dict":         lambda obj, key, val, rng, depth, pdf: mutate_dict(val, rng, depth, pdf),
-    "stream":       lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_stream(val, rng))
+    "stream":       lambda obj, key, val, rng, depth, pdf: obj.__setitem__(key, mutate_stream(val, rng, pdf))
 }
 
 
@@ -1730,51 +1730,213 @@ def tokenize_content_stream(data: bytes):
 
     return ops
 
-def mutate_operator_list(ops, rng):
+PDF_COLOR_OPS = ["rg", "RG", "k", "K", "g", "G", "cs", "CS", "sc", "SC"]
+PDF_TEXT_OPS = ["Tf", "Tj", "TJ", "BT", "ET", "Td", "TD", "Tm"]
+PDF_MATRIX_OPS = ["cm", "Tm"]
+PDF_PATH_OPS = ["m", "l", "c", "h", "re"]
+PDF_CLIP_OPS = ["W", "W*"]
+PDF_XOBJECT_OPS = ["Do"]
+
+UNKNOWN_OPS = ["ZZ", "qq", "WTF", "noop", "hack", "xxx", "BAD"]
+
+
+def mutate_operator_list(ops, rng, pdf):
     if not ops:
         return ops
 
-    choice = rng.randrange(5)
+    # names = collect_named_objects(pdf)
 
-    # 1. mutate numeric operands
+    choice = rng.randrange(12)   # increased number of mutation types
+
+    # ---------------------------------------------------------------
+    # 0. Mutate numeric operands aggressively
+    # ---------------------------------------------------------------
     if choice == 0:
         entry = rng.choice(ops)
         operands, op = entry
         for i, tok in enumerate(operands):
-            if tok.replace('.', '', 1).replace('-', '', 1).isdigit():
+            try:
                 val = float(tok)
-                val *= (1.0 + (rng.random() - 0.5) * 5.0)
+                # mutate numeric values heavily
+                val = val * (1.0 + (rng.random() - 0.5) * 10.0)
+                # occasional extreme values
+                if rng.random() < 0.1:
+                    val = rng.uniform(-1e6, 1e6)
                 operands[i] = str(val)
+            except:
+                pass
         return ops
 
-    # 2. mutate operator
+
+    # ---------------------------------------------------------------
+    # 1. Mutate operator (replace with random one)
+    # ---------------------------------------------------------------
     if choice == 1:
         entry = rng.choice(ops)
-        entry[1] = rng.choice(PDF_DRAWING_OPS)
+        entry[1] = rng.choice(PDF_DRAWING_OPS + UNKNOWN_OPS)
         return ops
 
-    # 3. insert a new random operator
+
+    # ---------------------------------------------------------------
+    # 2. Insert new operator (structured)
+    # ---------------------------------------------------------------
     if choice == 2:
         idx = rng.randrange(len(ops))
-        new_op = rng.choice(PDF_DRAWING_OPS)
-        new_operands = []
-        # If operator takes numbers, generate some
-        if new_op in ("m", "l", "Td", "TD", "cm"):
-            new_operands = [str(rng.uniform(-500, 500)) for _ in range(2)]
-        ops.insert(idx, (new_operands, new_op))
+        new_op = rng.choice(PDF_DRAWING_OPS + PDF_COLOR_OPS +
+                            PDF_TEXT_OPS + PDF_CLIP_OPS + UNKNOWN_OPS)
+        operands = []
+
+        # numeric operand operators
+        if new_op in ["m", "l", "Td", "TD"]:
+            operands = [str(rng.uniform(-500, 500)),
+                        str(rng.uniform(-500, 500))]
+
+        elif new_op in ["c"]:  # curve takes 6 operands
+            operands = [str(rng.uniform(-500, 500)) for _ in range(6)]
+
+        elif new_op in ["re"]: # rectangle
+            operands = [str(rng.uniform(-200, 200)) for _ in range(4)]
+
+        elif new_op in PDF_MATRIX_OPS:
+            operands = [str(rng.uniform(-20, 20)) for _ in range(6)]
+
+        elif new_op == "Tf":
+            # operands = ["/FakeFont", str(rng.randint(1, 80))]
+            operands = [ random.choice(collect_named_objects(pdf)) ]
+
+        elif new_op == "Do":
+            # operands = [f"/XObj{rng.randint(0,20)}"]
+            global not_reached
+            not_reached = False
+            names = collect_named_objects(pdf)
+            operands = [random.choice(names)] # Add a known name to the thing...
+
+        ops.insert(idx, (operands, new_op))
         return ops
 
-    # 4. delete an operator
+
+    # ---------------------------------------------------------------
+    # 3. Delete a random operator
+    # ---------------------------------------------------------------
     if choice == 3 and len(ops) > 1:
         del ops[rng.randrange(len(ops))]
         return ops
 
-    # 5. reorder operators
+
+    # ---------------------------------------------------------------
+    # 4. Shuffle operators
+    # ---------------------------------------------------------------
     if choice == 4:
         rng.shuffle(ops)
         return ops
 
+
+    # ---------------------------------------------------------------
+    # 5. Insert graphics state manipulation q/Q
+    # ---------------------------------------------------------------
+    if choice == 5:
+        idx = rng.randrange(len(ops))
+        ops.insert(idx, ([], rng.choice(["q", "Q"])))
+        return ops
+
+
+    # ---------------------------------------------------------------
+    # 6. Mutate color operators
+    # ---------------------------------------------------------------
+    if choice == 6:
+        for operands, op in ops:
+            if op in PDF_COLOR_OPS:
+                # random color model switching
+                if op in ["rg", "RG"]:
+                    operands[:] = [str(rng.random()),
+                                   str(rng.random()),
+                                   str(rng.random())]
+                elif op in ["g", "G"]:
+                    operands[:] = [str(rng.random())]
+                elif op in ["k", "K"]:
+                    operands[:] = [str(rng.random()) for _ in range(4)]
+                elif op in ["cs", "CS"]:
+                    operands[:] = ["/" + rng.choice(["DeviceRGB", "Pattern", "ICCBased"])]
+                elif op in ["sc", "SC"]:
+                    operands[:] = [str(rng.random()) for _ in range(rng.randint(1,4))]
+        return ops
+
+
+    # ---------------------------------------------------------------
+    # 7. Mutate text operators
+    # ---------------------------------------------------------------
+    if choice == 7:
+        for operands, op in ops:
+            if op == "Tf":
+                # change font name + size
+                names = collect_named_objects(pdf)
+                operands[0] = rng.choice(names) # "/" + "Font" + str(rng.randint(0,50))
+                operands[1] = str(rng.uniform(1,200))
+            elif op in ["Tj"]:
+                # corrupt text
+                operands[0] = "(" + "".join(chr(rng.randint(30,126))
+                                             for _ in range(rng.randint(1,30))) + ")"
+            elif op == "TJ":
+                # mix numbers + strings
+                operands[:] = [
+                    "(" + "".join(chr(rng.randint(30,126))
+                                   for _ in range(rng.randint(1,10))) + ")",
+                    str(rng.uniform(-20,20)),
+                    "(" + "".join(chr(rng.randint(30,126))
+                                   for _ in range(rng.randint(1,10))) + ")"
+                ]
+        return ops
+
+
+    # ---------------------------------------------------------------
+    # 8. Mutate transformation matrices (cm, Tm)
+    # ---------------------------------------------------------------
+    if choice == 8:
+        for operands, op in ops:
+            if op in PDF_MATRIX_OPS:
+                for i in range(len(operands)):
+                    operands[i] = str(rng.uniform(-1000, 1000))
+        return ops
+
+
+    # ---------------------------------------------------------------
+    # 9. Mutate XObject references (/Name Do)
+    # ---------------------------------------------------------------
+    if choice == 9:
+        for operands, op in ops:
+            if op == "Do":
+                # operands[0] = "/" + "XObj" + str(rng.randint(0,200))
+                names = collect_named_objects(pdf)
+                operands[0] = rng.choice(names) # Collect random...
+        return ops
+
+
+    # ---------------------------------------------------------------
+    # 10. Insert clipping operators (W/W*)
+    # ---------------------------------------------------------------
+    if choice == 10:
+        idx = rng.randrange(len(ops))
+        ops.insert(idx, ([], rng.choice(PDF_CLIP_OPS)))
+        return ops
+
+
+    # ---------------------------------------------------------------
+    # 11. Remove/reduce operand count (operand corruption)
+    # ---------------------------------------------------------------
+    if choice == 11:
+        entry = rng.choice(ops)
+        operands, op = entry
+        if operands:
+            # randomly drop or duplicate operands
+            if rng.random() < 0.5:
+                del operands[rng.randrange(len(operands))]
+            else:
+                operands.append(operands[-1])
+        return ops
+
+
     return ops
+
 
 def serialize_ops(ops):
     out = []
@@ -1783,7 +1945,7 @@ def serialize_ops(ops):
         out.append(op)
     return (" ".join(out)).encode("latin1")
 
-def mutate_stream_inplace(stream: Stream, rng: random.Random):
+def mutate_stream_inplace(stream: Stream, rng: random.Random, pdf):
     """
     Mutate stream bytes in-place (read-modify-write) using rng.
     """
@@ -1816,7 +1978,7 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random):
             if not ops:
                 return False
             dprint("Mutating drawing stream...")
-            ops = mutate_operator_list(ops, rng)
+            ops = mutate_operator_list(ops, rng, pdf)
             new_data = serialize_ops(ops)
             dprint("New data: "+str(new_data))
             stream.write(new_data)
@@ -2100,7 +2262,7 @@ def mutate_pdf_structural(buf: bytes, max_size: int, rng: random.Random) -> byte
         if target is None:
             raise RuntimeError("no candidate objects found for in-place mutation")
         if isinstance(target, pikepdf.Stream):
-            ok = mutate_stream_inplace(target, rng)
+            ok = mutate_stream_inplace(target, rng, pdf)
             if not ok:
                 raise RuntimeError("stream mutate failed")
         elif isinstance(target, pikepdf.Dictionary):
