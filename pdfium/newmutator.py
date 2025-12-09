@@ -35,6 +35,8 @@ import copy
 import datetime
 import decimal
 
+import compare
+
 sys.setrecursionlimit(20000)
 
 
@@ -1338,6 +1340,110 @@ def collect_named_objects(pdf) -> List[Name]:
         names = [Name("/Fallback")]
     return names
 
+def collect_xobject_names(pdf):
+    """Return a list of valid /Name keys from /XObject dictionaries."""
+    names = set()
+
+    for page in pdf.pages:
+        try:
+            res = page.Resources
+            dprint("Here is the thing: "+str(res))
+        except:
+            continue
+
+        if not res:
+            continue
+
+        # XObject dictionary lives inside Resources
+        xobjs = res[Name("/XObject")] # res.get("XObject", {})
+        dprint("Here is the thing poop: "+str(xobjs))
+
+        # exit(1)
+        if isinstance(xobjs, pikepdf.Dictionary):
+            dprint("Now enumerating objects...")
+            dprint("Here is __dir__ : "+str(xobjs.__dir__()))
+            dprint("Here are the keys: "+str(xobjs.keys()))
+
+            for name in xobjs.keys():
+                # prepend slash for stream syntax: /Name Do
+                names.add(str(name))
+
+    return list(names)
+
+def is_same_page(page, data):
+    """
+    Return True if `stream_obj` is one of the page's /Contents streams.
+    """
+    contents = page.obj.get("/Contents", None)
+
+    # 1. Page has no /Contents
+    if contents is None:
+        return False
+
+    # dprint("Here is the thing of the thing: "+str(contents))
+    # dprint("Here is the data: "+str(data))
+
+    # 2. /Contents is a single stream
+    if isinstance(contents, pikepdf.Stream):
+        return data in contents.read_bytes() # Check if the thing is in the thing... # contents == stream_obj
+
+    # 3. /Contents is an indirect reference to a stream
+    # if isinstance(contents, pikepdf.Object) and contents.type == "stream":
+    #     return contents == stream_obj
+
+    # 4. /Contents is an array of streams or references
+    if isinstance(contents, pikepdf.Array):
+        for item in contents:
+            # Case: indirect reference to stream
+            if isinstance(item, pikepdf.Stream):
+                if data in item.read_bytes():
+                    # dprint("Paskaperseeee!!!"*100)
+                    # dprint("We found the thing..."*100)
+                    # exit(1)
+                    return True
+
+            # Case: direct stream object
+            # if isinstance(item, pikepdf.Stream):
+            #     if item == stream_obj:
+            #         return True
+
+    return False
+
+def collect_xobject_names_from_same_page(pdf, stream_data):
+    """Return a list of valid /Name keys from /XObject dictionaries."""
+    names = set()
+
+    for page in pdf.pages:
+
+        if not is_same_page(page, stream_data): # Check if the page is the same as the stream we are mutating...
+            # Ignore other pages. Each page has a unique set of xobjects..
+            continue
+
+        try:
+            res = page.Resources
+            # dprint("Here is the thing: "+str(res))
+        except:
+            continue
+
+        if not res:
+            continue
+
+        # XObject dictionary lives inside Resources
+        xobjs = res[Name("/XObject")] # res.get("XObject", {})
+        # dprint("Here is the thing poop: "+str(xobjs))
+
+        # exit(1)
+        if isinstance(xobjs, pikepdf.Dictionary):
+            # dprint("Now enumerating objects...")
+            # dprint("Here is __dir__ : "+str(xobjs.__dir__()))
+            # dprint("Here are the keys: "+str(xobjs.keys()))
+
+            for name in xobjs.keys():
+                # prepend slash for stream syntax: /Name Do
+                names.add(str(name))
+
+    return list(names)
+
 def mut_string(string: str, rng: random.Random) -> str:
     global not_reached
     if string == "": # Check for empty strings before trying to mutate the object...
@@ -1480,8 +1586,8 @@ def mutate_array(arr: Array, rng, pdf):
             dprint("After mutation: "+str(elem))
         elif isinstance(elem, pikepdf.Stream): # Mutate stream...
             mutate_stream_inplace(elem, rng, pdf)
-        elif isinstance(elem, str): # Is a string???
-            mutate_string(elem)
+        elif isinstance(elem, str) or isinstance(elem, pikepdf.String): # Is a string???
+            mutate_string(elem, rng)
             not_reached = False
         elif isinstance(elem, float) or isinstance(elem, decimal.Decimal):
             # Float???
@@ -1490,6 +1596,7 @@ def mutate_array(arr: Array, rng, pdf):
             elem = mutate_array(elem, rng, pdf)
         elif isinstance(elem, Name): # Name
             elem = mutate_name(elem, rng, pdf) # Just mutate that name shit...
+        # elif isinstanec(elem, str): # Just a regular string.
         else:
             dprint("Unsupported target: "+str(elem))
             dprint("Type: "+str(type(elem)))
@@ -1740,7 +1847,7 @@ PDF_XOBJECT_OPS = ["Do"]
 UNKNOWN_OPS = ["ZZ", "qq", "WTF", "noop", "hack", "xxx", "BAD"]
 
 
-def mutate_operator_list(ops, rng, pdf):
+def mutate_operator_list(ops, rng, pdf, data):
     if not ops:
         return ops
 
@@ -1775,8 +1882,11 @@ def mutate_operator_list(ops, rng, pdf):
     # 1. Mutate operator (replace with random one)
     # ---------------------------------------------------------------
     if choice == 1:
-        entry = rng.choice(ops)
-        entry[1] = rng.choice(PDF_DRAWING_OPS + UNKNOWN_OPS)
+        # entry = rng.choice(ops)
+        idx = rng.randrange(len(ops))
+        # dprint(entry[1])
+        # entry[1] = rng.choice(PDF_DRAWING_OPS + UNKNOWN_OPS)
+        ops[idx] = tuple((ops[idx][0], rng.choice(PDF_DRAWING_OPS + UNKNOWN_OPS)))
         return ops
 
 
@@ -1872,6 +1982,8 @@ def mutate_operator_list(ops, rng, pdf):
             if op == "Tf":
                 # change font name + size
                 names = collect_named_objects(pdf)
+                if len(operands) < 2:
+                    operands = [None, None] # Do the thing...
                 operands[0] = rng.choice(names) # "/" + "Font" + str(rng.randint(0,50))
                 operands[1] = str(rng.uniform(1,200))
             elif op in ["Tj"]:
@@ -1910,16 +2022,20 @@ def mutate_operator_list(ops, rng, pdf):
             # operands, op = ops[i]
             if op == "Do":
                 global not_reached
-                not_reached = False
+                
                 # operands[0] = "/" + "XObj" + str(rng.randint(0,200))
-                names = collect_named_objects(pdf)
+                names = collect_xobject_names_from_same_page(pdf, data)
+                if len(names) == 0:
+                    return ops # Do not try to mutate...
+
+                not_reached = False
                 new_name = rng.choice(names)
                 new_name = str(new_name)
                 # dprint("old name: "+str(operands[0]))
                 # dprint("New name: "+str(new_name))
                 # ops[i][0] = new_name # copy.deepcopy(new_name) # Collect random...
                 # ops[i] = tuple((x for x in [[new_name] + list(ops[i][1:])]))
-                operands[0] = new_name
+                operands[0] = str(new_name)
                 # dprint(ops[i])
         # dprint("Returning... ")
         return ops
@@ -1954,7 +2070,9 @@ def mutate_operator_list(ops, rng, pdf):
 
 def serialize_ops(ops):
     out = []
+    dprint("Serializing these operations: "+str(ops))
     for operands, op in ops:
+        operands = [str(x) for x in operands]
         out.extend(operands)
         out.append(op)
     return (" ".join(out)).encode("latin1")
@@ -1993,7 +2111,7 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random, pdf):
             if not ops:
                 return False
             dprint("Mutating drawing stream...")
-            ops = mutate_operator_list(ops, rng, pdf)
+            ops = mutate_operator_list(ops, rng, pdf, data) # Also pass in the content stream data...
             new_data = serialize_ops(ops)
             dprint("New data: "+str(new_data))
             stream.write(new_data)
@@ -2001,7 +2119,8 @@ def mutate_stream_inplace(stream: Stream, rng: random.Random, pdf):
 
         except Exception as exception:
 
-            if not_reached == False:
+            # if not_reached == False:
+            if True:
                 dprint(traceback.print_exception(type(exception), exception, exception.__traceback__))
                 dprint(str(exception))
                 dprint("FUCK!"*1000)
@@ -2609,7 +2728,9 @@ if __name__ == "__main__":
         # n = int(n)
         init(0)
         try:
-            while not_reached:
+            while not_reached or not compare.compare_pdfs_visually(infile, outfile): # Compare visually...
+                # global not_reached
+                not_reached = True # Do the stuff...
                 cli_mutate_file(infile, outfile, times=1)
         except Exception as e:
             print("Mutation error: " + str(e))
